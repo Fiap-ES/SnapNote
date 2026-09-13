@@ -2,13 +2,13 @@ from collections.abc import Callable
 from datetime import datetime
 
 from camera4kivy import Preview
-from kivy.app import App
 from kivy.clock import Clock, mainthread
 from kivy.lang import Builder
 from kivy.logger import Logger
 from kivy.properties import StringProperty
-from kivy.uix.boxlayout import BoxLayout
 from kivy.utils import platform
+from kivymd.app import MDApp
+from kivymd.uix.boxlayout import MDBoxLayout
 
 if platform == "android":
     from android.permissions import Permission, check_permission, request_permissions
@@ -16,22 +16,26 @@ if platform == "android":
 KV = """
 <CameraScreen>:
     orientation: "vertical"
+    padding: 0, 0, 0, dp(24)
+    spacing: dp(8)
     Preview:
         id: preview
         aspect_ratio: "16:9"
-    Label:
+    MDLabel:
         text: root.status
-        size_hint_y: None
-        height: dp(64)
-        font_size: sp(12)
-        text_size: self.width - dp(16), None
+        font_style: "Caption"
+        theme_text_color: "Secondary"
         halign: "center"
-        valign: "middle"
-    Button:
-        text: "Capturar"
-        font_size: sp(18)
+        valign: "center"
         size_hint_y: None
-        height: dp(72)
+        height: dp(56)
+    MDIconButton:
+        icon: "camera"
+        icon_size: "48sp"
+        md_bg_color: app.theme_cls.primary_color
+        theme_icon_color: "Custom"
+        icon_color: 1, 1, 1, 1
+        pos_hint: {"center_x": .5}
         on_release: root.capture()
 """
 
@@ -59,7 +63,7 @@ def timestamp_name() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
 
-class CameraScreen(BoxLayout):
+class CameraScreen(MDBoxLayout):
     status = StringProperty("")
 
     def on_camera_permission(self, granted: bool) -> None:
@@ -95,8 +99,9 @@ class CameraScreen(BoxLayout):
         Logger.info("SnapNote: foto salva em %s", file_path)
 
 
-class SnapNoteApp(App):
+class SnapNoteApp(MDApp):
     def build(self) -> CameraScreen:
+        self.theme_cls.theme_style = "Dark"
         Builder.load_string(KV)
         return CameraScreen()
 

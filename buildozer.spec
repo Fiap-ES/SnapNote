@@ -8,7 +8,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 source.exclude_dirs = tests, bin
 
-requirements = python3,kivy,camera4kivy,gestures4kivy,pillow,piexif
+requirements = python3,kivy,camera4kivy,gestures4kivy,pillow,piexif,kivymd==1.2.0
 orientation = portrait
 fullscreen = 0
 
