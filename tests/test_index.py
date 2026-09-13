@@ -82,6 +82,16 @@ def test_all_photos_includes_photos_without_note(tmp_path: Path, make_jpeg: Make
         assert index.notes() == [IndexedNote(str(with_note.resolve()), "Farmácia")]
 
 
+def test_rebuild_does_not_descend_into_subfolders(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
+    top_level = make_jpeg("fotos/a.jpg", note="Farmácia")
+    make_jpeg("fotos/backup/b.jpg", note="Padaria")
+
+    with open_index(tmp_path / "index.db") as index:
+        index.rebuild(tmp_path / "fotos")
+
+        assert index.all_photos() == [IndexedPhoto(str(top_level.resolve()), "Farmácia")]
+
+
 def test_rebuild_reflects_notes_changed_outside_the_index(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
     path = make_jpeg("fotos/a.jpg", note="antiga")
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import media_store
 from core.index import IndexedPhoto, open_index
 from core.search import search
 
@@ -14,6 +15,7 @@ def find_photos(index_path: Path, term: str = "") -> list[IndexedPhoto]:
 
 def delete_photo(image_path: Path, index_path: Path) -> None:
     image_path.unlink()
+    media_store.notify(image_path)
     with open_index(index_path) as index:
         index.remove(image_path)
 

@@ -1,38 +1,47 @@
+import shutil
 from pathlib import Path
 
 from kivy.app import App
 from kivy.utils import platform
 
+import media_store
+
 if platform == "android":
-    from android.storage import app_storage_path
+    from android.storage import app_storage_path, primary_external_storage_path
 
-PHOTOS_SUBDIR = "photos"
+CAPTURE_SUBDIR = "captures"
 INDEX_FILENAME = "snapnote.db"
+PUBLIC_ALBUM = Path("DCIM") / "SnapNote"
 
 
-def data_dir() -> Path:
-    # No Android o camera4kivy só grava capturas "private" dentro de
-    # <app_storage_path>/DCIM; no desktop ele aceita qualquer diretório
-    # existente, papel que o user_data_dir do Kivy cumpre. A galeria pode
-    # abrir antes da primeira captura, quando o camera4kivy ainda não criou
-    # a pasta.
+def app_dir() -> Path:
     if platform == "android":
-        root = Path(app_storage_path()) / "DCIM"
-    else:
-        root = Path(App.get_running_app().user_data_dir)
-    root.mkdir(exist_ok=True)
-    return root
+        return Path(app_storage_path())
+    return Path(App.get_running_app().user_data_dir)
 
 
 def capture_location() -> str:
-    return "private" if platform == "android" else str(data_dir())
+    # No Android o camera4kivy só grava capturas "private" dentro de
+    # <app_dir>/DCIM; no desktop aceita qualquer diretório existente. Nos
+    # dois casos a captura é só uma escala: publish() a leva para o álbum.
+    return "private" if platform == "android" else str(app_dir())
 
 
 def photos_dir() -> Path:
-    folder = data_dir() / PHOTOS_SUBDIR
-    folder.mkdir(exist_ok=True)
-    return folder
+    # DCIM/SnapNote fica no armazenamento compartilhado e sobrevive à
+    # desinstalação; no desktop a mesma estrutura vive dentro de app_dir().
+    root = Path(primary_external_storage_path()) if platform == "android" else app_dir()
+    album = root / PUBLIC_ALBUM
+    album.mkdir(parents=True, exist_ok=True)
+    return album
 
 
 def index_path() -> Path:
-    return data_dir() / INDEX_FILENAME
+    return app_dir() / INDEX_FILENAME
+
+
+def publish(capture: Path) -> Path:
+    photo = photos_dir() / capture.name
+    shutil.move(capture, photo)
+    media_store.notify(photo)
+    return photo

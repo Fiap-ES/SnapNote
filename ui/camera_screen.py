@@ -8,7 +8,7 @@ from kivymd.toast import toast
 from kivymd.uix.screen import MDScreen
 
 import storage
-from permissions import camera_permission_granted
+from permissions import camera_permission_granted, photo_saving_allowed
 
 Builder.load_string("""
 <CameraScreen>:
@@ -64,9 +64,12 @@ class CameraScreen(MDScreen):
             self.ids.preview.disconnect_camera()
 
     def capture(self) -> None:
+        if not photo_saving_allowed():
+            toast("Sem permissão de armazenamento, a foto não pode ser salva.")
+            return
         self.ids.preview.capture_photo(
             location=storage.capture_location(),
-            subdir=storage.PHOTOS_SUBDIR,
+            subdir=storage.CAPTURE_SUBDIR,
             name=timestamp_name(),
         )
 

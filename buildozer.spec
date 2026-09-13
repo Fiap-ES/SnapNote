@@ -12,7 +12,7 @@ requirements = python3,kivy,camera4kivy,gestures4kivy,pillow,piexif,kivymd==1.2.
 orientation = portrait
 fullscreen = 0
 
-android.permissions = CAMERA
+android.permissions = CAMERA, (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=28), (name=android.permission.READ_EXTERNAL_STORAGE;maxSdkVersion=32), android.permission.READ_MEDIA_IMAGES, android.permission.READ_MEDIA_VISUAL_USER_SELECTED
 android.api = 34
 android.minapi = 21
 android.archs = arm64-v8a

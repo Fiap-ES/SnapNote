@@ -4,10 +4,12 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.screenmanager import ScreenManager
 from kivymd.app import MDApp
+from kivymd.toast import toast
 
 import notes
+import storage
 from core.index import IndexedPhoto
-from permissions import request_camera_permission
+from permissions import PermissionStatus, request_app_permissions
 from ui.camera_screen import CameraScreen
 from ui.detail_screen import DetailScreen
 from ui.gallery_screen import GalleryScreen
@@ -67,8 +69,9 @@ class SnapNoteApp(MDApp):
 
     def annotate_capture(self, file_path: str) -> None:
         self.camera.stop_camera()
+        photo = storage.publish(Path(file_path))
         self.note.edit(
-            file_path,
+            str(photo),
             "",
             cancel_label="Descartar",
             on_saved=lambda _path, _note: self.show_camera(),
@@ -107,9 +110,12 @@ class SnapNoteApp(MDApp):
     def on_start(self) -> None:
         # camera4kivy exige que connect_camera ocorra pelo menos um frame
         # depois de on_start.
-        Clock.schedule_once(
-            lambda _dt: request_camera_permission(self.camera.on_camera_permission)
-        )
+        Clock.schedule_once(lambda _dt: request_app_permissions(self.on_permissions))
+
+    def on_permissions(self, status: PermissionStatus) -> None:
+        self.camera.on_camera_permission(status.camera)
+        if not status.storage:
+            toast("Sem acesso às fotos do aparelho, a galeria e a reconstrução do índice ficam limitadas às fotos deste app.")
 
     def on_pause(self) -> bool:
         self.camera.stop_camera()
