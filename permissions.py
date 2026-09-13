@@ -45,6 +45,10 @@ def storage_permission_granted() -> bool:
     return any(check_permission(permission) for permission in accepted)
 
 
+def microphone_permission_granted() -> bool:
+    return platform != "android" or check_permission(Permission.RECORD_AUDIO)
+
+
 def photo_saving_allowed() -> bool:
     # Antes da API 29 a gravação em DCIM depende da permissão de escrita.
     return platform != "android" or api_version >= 29 or storage_permission_granted()
@@ -59,13 +63,24 @@ def request_app_permissions(on_result: Callable[[PermissionStatus], None]) -> No
     if status.camera and status.storage:
         on_result(status)
         return
+    wanted = {Permission.CAMERA: status.camera, storage_permission(): status.storage}
+    missing = [permission for permission, granted in wanted.items() if not granted]
+    _request(missing, lambda: on_result(current_status()))
 
+
+def request_microphone_permission(on_result: Callable[[bool], None]) -> None:
+    if microphone_permission_granted():
+        on_result(True)
+        return
+    _request([Permission.RECORD_AUDIO], lambda: on_result(microphone_permission_granted()))
+
+
+def _request(permissions: list[str], on_answered: Callable[[], None]) -> None:
     # O Android responde em uma thread Java e, se o diálogo for interrompido,
     # com listas vazias; por isso o estado real é consultado de novo, já na
     # thread do Kivy.
     @mainthread
     def deliver(_permissions: list[str], _grants: list[bool]) -> None:
-        on_result(current_status())
+        on_answered()
 
-    wanted = {Permission.CAMERA: status.camera, storage_permission(): status.storage}
-    request_permissions([p for p, granted in wanted.items() if not granted], deliver)
+    request_permissions(permissions, deliver)
