@@ -13,6 +13,7 @@ from permissions import PermissionStatus, request_app_permissions
 from ui.camera_screen import CameraScreen
 from ui.detail_screen import DetailScreen
 from ui.gallery_screen import GalleryScreen
+from ui.keywords_screen import KeywordsScreen
 from ui.note_screen import NoteScreen
 from ui.thumbnail_loader import ThumbnailLoader
 
@@ -34,15 +35,18 @@ class SnapNoteApp(MDApp):
         self.note = NoteScreen(previews, name="note")
         self.gallery = GalleryScreen(ThumbnailLoader(GRID_THUMBNAIL_SIZE), name="gallery")
         self.detail = DetailScreen(previews, name="detail")
+        self.keywords = KeywordsScreen(name="keywords")
 
         self.camera.bind(
             on_photo_captured=lambda _camera, file_path: self.annotate_capture(file_path),
-            on_gallery_requested=lambda _camera: self.show_gallery(),
+            on_gallery_requested=lambda _camera: self.show_gallery_root(),
         )
         self.gallery.bind(
             on_photo_selected=lambda _gallery, photo: self.show_detail(photo),
+            on_keywords_requested=lambda _gallery: self.show_keywords(),
             on_back=lambda _gallery: self.show_camera(),
         )
+        self.keywords.bind(on_back=lambda _keywords: self.show_gallery())
         self.detail.bind(
             on_edit_requested=lambda _detail, photo: self.edit_note(photo),
             on_deleted=lambda _detail: self.show_gallery(),
@@ -50,7 +54,7 @@ class SnapNoteApp(MDApp):
         )
 
         manager = ScreenManager()
-        for screen in (self.camera, self.note, self.gallery, self.detail):
+        for screen in (self.camera, self.note, self.gallery, self.detail, self.keywords):
             manager.add_widget(screen)
         return manager
 
@@ -62,6 +66,14 @@ class SnapNoteApp(MDApp):
         self.camera.stop_camera()
         self.gallery.refresh()
         self.root.current = "gallery"
+
+    def show_gallery_root(self) -> None:
+        self.gallery.group = None
+        self.show_gallery()
+
+    def show_keywords(self) -> None:
+        self.keywords.refresh()
+        self.root.current = "keywords"
 
     def show_detail(self, photo: IndexedPhoto) -> None:
         self.detail.show(photo)
@@ -98,8 +110,9 @@ class SnapNoteApp(MDApp):
     def on_window_key(self, _window: object, key: int, *_args: object) -> bool:
         back_actions = {
             "note": self.note.cancel,
-            "gallery": self.show_camera,
+            "gallery": self.gallery.navigate_back,
             "detail": self.show_gallery,
+            "keywords": self.show_gallery,
         }
         action = back_actions.get(self.root.current)
         if key != BACK_KEY or action is None:

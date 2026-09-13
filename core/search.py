@@ -1,13 +1,7 @@
-import unicodedata
-
 from core.index import IndexedNote, NoteIndex
+from core.text import normalize
 
-
-def normalize(text: str) -> str:
-    # NFKD separa cada letra acentuada em letra base + marca combinante;
-    # descartadas as marcas, "farmácia" e "farmacia" viram a mesma sequência.
-    decomposed = unicodedata.normalize("NFKD", text.casefold())
-    return "".join(char for char in decomposed if not unicodedata.combining(char))
+__all__ = ["normalize", "search"]
 
 
 def search(index: NoteIndex, term: str) -> list[IndexedNote]:

@@ -40,10 +40,18 @@ class ThumbnailLoader:
 
     def _decode(self, file_path: str) -> Future[PIL.Image.Image]:
         if file_path not in self._images:
-            self._images[file_path] = self._executor.submit(
-                upright_thumbnail, Path(file_path), self._max_size
-            )
+            future = self._executor.submit(upright_thumbnail, Path(file_path), self._max_size)
+            # Uma leitura pode falhar se o arquivo estiver sendo reescrito pelo
+            # piexif naquele instante; a falha não fica em cache, e a próxima
+            # exibição tenta de novo.
+            future.add_done_callback(lambda done: self._forget_failure(file_path, done))
+            self._images[file_path] = future
         return self._images[file_path]
+
+    @mainthread
+    def _forget_failure(self, file_path: str, done: Future[PIL.Image.Image]) -> None:
+        if done.exception() is not None:
+            self._images.pop(file_path, None)
 
     @mainthread
     def _show(self, target: Thumbnail, file_path: str, image: PIL.Image.Image) -> None:
