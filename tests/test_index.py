@@ -1,16 +1,13 @@
-import sqlite3
-from contextlib import closing
 from pathlib import Path
 
 from core import exif_store
 from core.index import IndexedNote, open_index
-from tests.conftest import UNDEFINED_USER_COMMENT, MakeJpeg, write_raw_user_comment
-
-
-def indexed_paths(db_path: Path) -> list[str]:
-    with closing(sqlite3.connect(db_path)) as connection:
-        rows = connection.execute("SELECT path FROM notes ORDER BY path")
-        return [path for (path,) in rows]
+from tests.conftest import (
+    UNDEFINED_USER_COMMENT,
+    MakeJpeg,
+    indexed_paths,
+    write_raw_user_comment,
+)
 
 
 def test_upsert_inserts_and_then_updates_entry(tmp_path: Path, make_jpeg: MakeJpeg) -> None:

@@ -1,4 +1,6 @@
+import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 
 import piexif
@@ -29,3 +31,9 @@ def make_jpeg(tmp_path: Path) -> MakeJpeg:
         return path
 
     return _make_jpeg
+
+
+def indexed_paths(db_path: Path) -> list[str]:
+    with closing(sqlite3.connect(db_path)) as connection:
+        rows = connection.execute("SELECT path FROM notes ORDER BY path")
+        return [path for (path,) in rows]
