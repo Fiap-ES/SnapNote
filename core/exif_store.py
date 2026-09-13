@@ -1,0 +1,52 @@
+from pathlib import Path
+
+import piexif
+import piexif.helper
+
+JPEG_SUFFIXES = frozenset({".jpg", ".jpeg"})
+
+
+class ExifStoreError(Exception):
+    pass
+
+
+class ImageNotFoundError(ExifStoreError):
+    pass
+
+
+class UnsupportedFormatError(ExifStoreError):
+    pass
+
+
+def write_note(image_path: str | Path, text: str) -> None:
+    path = _jpeg_path(image_path)
+    exif = piexif.load(str(path))
+    # UserComment começa com 8 bytes que declaram a codificação do corpo.
+    # O prefixo "UNICODE" grava o texto em UTF-16BE, a única opção do padrão
+    # EXIF capaz de representar acentos e cedilha sem perda.
+    exif["Exif"][piexif.ExifIFD.UserComment] = piexif.helper.UserComment.dump(
+        text, encoding="unicode"
+    )
+    piexif.insert(piexif.dump(exif), str(path))
+
+
+def read_note(image_path: str | Path) -> str | None:
+    path = _jpeg_path(image_path)
+    raw = piexif.load(str(path))["Exif"].get(piexif.ExifIFD.UserComment)
+    if raw is None:
+        return None
+    try:
+        return piexif.helper.UserComment.load(raw)
+    except ValueError:
+        # Câmeras de terceiros gravam UserComment com codificação indefinida
+        # (prefixo de 8 bytes nulos); uma anotação ilegível vale como ausente.
+        return None
+
+
+def _jpeg_path(image_path: str | Path) -> Path:
+    path = Path(image_path)
+    if not path.is_file():
+        raise ImageNotFoundError(str(path))
+    if path.suffix.lower() not in JPEG_SUFFIXES:
+        raise UnsupportedFormatError(str(path))
+    return path
