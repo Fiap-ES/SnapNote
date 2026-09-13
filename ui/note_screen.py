@@ -1,16 +1,13 @@
+from collections.abc import Callable
 from pathlib import Path
 
-import PIL.Image
-from kivy.graphics.texture import Texture
 from kivy.lang import Builder
 from kivy.properties import StringProperty
 from kivymd.uix.screen import MDScreen
 
 import notes
 import storage
-from thumbnails import upright_thumbnail
-
-THUMBNAIL_MAX_SIZE = 1024
+from ui.thumbnail_loader import ThumbnailLoader
 
 Builder.load_string("""
 <NoteScreen>:
@@ -18,7 +15,7 @@ Builder.load_string("""
         orientation: "vertical"
         padding: dp(16)
         spacing: dp(16)
-        Image:
+        Thumbnail:
             id: thumbnail
             fit_mode: "contain"
         MDTextField:
@@ -32,40 +29,42 @@ Builder.load_string("""
             spacing: dp(16)
             pos_hint: {"center_x": .5}
             MDFlatButton:
-                text: "Descartar"
-                on_release: root.discard()
+                text: root.cancel_label
+                on_release: root.cancel()
             MDRaisedButton:
                 text: "Salvar"
                 on_release: root.save()
 """)
 
 
-def texture_from(image: PIL.Image.Image) -> Texture:
-    texture = Texture.create(size=image.size, colorfmt="rgb")
-    texture.blit_buffer(image.tobytes(), colorfmt="rgb", bufferfmt="ubyte")
-    # O Pillow enumera as linhas de cima para baixo; a textura do Kivy tem a
-    # origem embaixo.
-    texture.flip_vertical()
-    return texture
-
-
 class NoteScreen(MDScreen):
-    __events__ = ("on_finished",)
     photo_path = StringProperty("")
+    cancel_label = StringProperty("")
 
-    def show_photo(self, file_path: str) -> None:
+    def __init__(self, previews: ThumbnailLoader, **kwargs: object) -> None:
+        super().__init__(**kwargs)
+        self._previews = previews
+
+    def edit(
+        self,
+        file_path: str,
+        text: str,
+        cancel_label: str,
+        on_saved: Callable[[str, str | None], None],
+        on_cancelled: Callable[[str], None],
+    ) -> None:
         self.photo_path = file_path
-        thumbnail = upright_thumbnail(Path(file_path), THUMBNAIL_MAX_SIZE)
-        self.ids.thumbnail.texture = texture_from(thumbnail)
-        self.ids.note_field.text = ""
+        self.cancel_label = cancel_label
+        self._on_saved = on_saved
+        self._on_cancelled = on_cancelled
+        self._previews.display(file_path, self.ids.thumbnail)
+        self.ids.note_field.text = text
 
     def save(self) -> None:
-        notes.save_note(Path(self.photo_path), self.ids.note_field.text, storage.index_path())
-        self.dispatch("on_finished")
+        note = notes.save_note(
+            Path(self.photo_path), self.ids.note_field.text, storage.index_path()
+        )
+        self._on_saved(self.photo_path, note)
 
-    def discard(self) -> None:
-        notes.discard_photo(Path(self.photo_path))
-        self.dispatch("on_finished")
-
-    def on_finished(self) -> None:
-        pass
+    def cancel(self) -> None:
+        self._on_cancelled(self.photo_path)

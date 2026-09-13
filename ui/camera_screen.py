@@ -14,19 +14,25 @@ Builder.load_string("""
 <CameraScreen>:
     MDBoxLayout:
         orientation: "vertical"
-        padding: 0, 0, 0, dp(24)
-        spacing: dp(8)
         Preview:
             id: preview
             aspect_ratio: "16:9"
-        MDIconButton:
-            icon: "camera"
-            icon_size: "48sp"
-            md_bg_color: app.theme_cls.primary_color
-            theme_icon_color: "Custom"
-            icon_color: 1, 1, 1, 1
-            pos_hint: {"center_x": .5}
-            on_release: root.capture()
+        MDFloatLayout:
+            size_hint_y: None
+            height: dp(96)
+            MDIconButton:
+                icon: "camera"
+                icon_size: "48sp"
+                md_bg_color: app.theme_cls.primary_color
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                pos_hint: {"center_x": .5, "center_y": .5}
+                on_release: root.capture()
+            MDIconButton:
+                icon: "image-multiple"
+                icon_size: "32sp"
+                pos_hint: {"center_x": .85, "center_y": .5}
+                on_release: root.dispatch("on_gallery_requested")
 """)
 
 
@@ -35,7 +41,7 @@ def timestamp_name() -> str:
 
 
 class CameraScreen(MDScreen):
-    __events__ = ("on_photo_captured",)
+    __events__ = ("on_photo_captured", "on_gallery_requested")
 
     def on_camera_permission(self, granted: bool) -> None:
         if granted:
@@ -72,4 +78,7 @@ class CameraScreen(MDScreen):
         self.dispatch("on_photo_captured", file_path)
 
     def on_photo_captured(self, file_path: str) -> None:
+        pass
+
+    def on_gallery_requested(self) -> None:
         pass

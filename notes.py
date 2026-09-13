@@ -4,14 +4,17 @@ from core import exif_store
 from core.index import open_index
 
 
-def save_note(image_path: Path, text: str, index_path: Path) -> None:
-    # Texto em branco não vira um UserComment vazio: a foto fica sem
-    # anotação e o índice a registra com nota nula.
-    note = text.strip()
-    if note:
+def save_note(image_path: Path, text: str, index_path: Path) -> str | None:
+    # Texto em branco não vira um UserComment vazio: o campo é removido, a
+    # foto fica sem anotação e o índice a registra com nota nula.
+    note = text.strip() or None
+    if note is None:
+        exif_store.remove_note(image_path)
+    else:
         exif_store.write_note(image_path, note)
     with open_index(index_path) as index:
         index.upsert(image_path)
+    return note
 
 
 def discard_photo(image_path: Path) -> None:

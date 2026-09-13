@@ -43,6 +43,14 @@ def read_note(image_path: str | Path) -> str | None:
         return None
 
 
+def remove_note(image_path: str | Path) -> None:
+    path = _jpeg_path(image_path)
+    exif = piexif.load(str(path))
+    # Sem campo a remover, o arquivo não é reescrito.
+    if exif["Exif"].pop(piexif.ExifIFD.UserComment, None) is not None:
+        piexif.insert(piexif.dump(exif), str(path))
+
+
 def _jpeg_path(image_path: str | Path) -> Path:
     path = Path(image_path)
     if not path.is_file():

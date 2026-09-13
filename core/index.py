@@ -27,8 +27,13 @@ ON CONFLICT(path) DO UPDATE SET
 
 
 @dataclass(frozen=True)
-class IndexedNote:
+class IndexedPhoto:
     path: str
+    note: str | None
+
+
+@dataclass(frozen=True)
+class IndexedNote(IndexedPhoto):
     note: str
 
 
@@ -59,6 +64,10 @@ class NoteIndex:
             "SELECT path, note FROM notes WHERE note IS NOT NULL ORDER BY path"
         )
         return [IndexedNote(path, note) for path, note in rows]
+
+    def all_photos(self) -> list[IndexedPhoto]:
+        rows = self._connection.execute("SELECT path, note FROM notes ORDER BY path")
+        return [IndexedPhoto(path, note) for path, note in rows]
 
 
 @contextmanager

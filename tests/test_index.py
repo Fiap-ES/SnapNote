@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from core import exif_store
-from core.index import IndexedNote, open_index
+from core.index import IndexedNote, IndexedPhoto, open_index
 from tests.conftest import (
     UNDEFINED_USER_COMMENT,
     MakeJpeg,
@@ -66,6 +66,20 @@ def test_rebuild_reindexes_folder_from_scratch(tmp_path: Path, make_jpeg: MakeJp
         str(without_note.resolve()),
         str(uppercase_suffix.resolve()),
     ]
+
+
+def test_all_photos_includes_photos_without_note(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
+    with_note = make_jpeg("fotos/a.jpg", note="Farmácia")
+    without_note = make_jpeg("fotos/b.jpg")
+
+    with open_index(tmp_path / "index.db") as index:
+        index.rebuild(tmp_path / "fotos")
+
+        assert index.all_photos() == [
+            IndexedPhoto(str(with_note.resolve()), "Farmácia"),
+            IndexedPhoto(str(without_note.resolve()), None),
+        ]
+        assert index.notes() == [IndexedNote(str(with_note.resolve()), "Farmácia")]
 
 
 def test_rebuild_reflects_notes_changed_outside_the_index(tmp_path: Path, make_jpeg: MakeJpeg) -> None:

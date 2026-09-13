@@ -63,6 +63,27 @@ def test_write_note_preserves_existing_exif(make_jpeg: MakeJpeg) -> None:
     assert exif["Exif"][piexif.ExifIFD.DateTimeOriginal] == b"2026:09:13 10:00:00"
 
 
+def test_remove_note_deletes_user_comment_and_keeps_other_exif(make_jpeg: MakeJpeg) -> None:
+    path = make_jpeg(note="nota")
+    exif = piexif.load(str(path))
+    exif["0th"][piexif.ImageIFD.Make] = b"Canon"
+    piexif.insert(piexif.dump(exif), str(path))
+
+    exif_store.remove_note(path)
+
+    assert exif_store.read_note(path) is None
+    assert piexif.load(str(path))["0th"][piexif.ImageIFD.Make] == b"Canon"
+
+
+def test_remove_note_without_note_leaves_file_untouched(make_jpeg: MakeJpeg) -> None:
+    path = make_jpeg()
+    original = path.read_bytes()
+
+    exif_store.remove_note(path)
+
+    assert path.read_bytes() == original
+
+
 def test_write_note_keeps_image_decodable(make_jpeg: MakeJpeg) -> None:
     path = make_jpeg()
 
