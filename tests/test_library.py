@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import library
@@ -100,3 +101,11 @@ def test_rename_and_remove_keyword(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
 
     library.remove_keyword(db_path, keyword.id)
     assert library.groups(db_path) == [] and library.keywords(db_path) == []
+
+
+def test_capture_time_comes_from_the_app_file_name() -> None:
+    assert library.capture_time(Path("/fotos/20260913_101530_250000.jpg")) == datetime(2026, 9, 13, 10, 15, 30, 250000)
+
+
+def test_capture_time_is_unknown_for_foreign_file_names() -> None:
+    assert library.capture_time(Path("/fotos/IMG_0001.jpg")) is None

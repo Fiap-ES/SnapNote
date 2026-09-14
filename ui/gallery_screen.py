@@ -4,98 +4,124 @@ from kivy.clock import mainthread
 from kivy.lang import Builder
 from kivy.properties import ObjectProperty, StringProperty
 from kivy.uix.behaviors import ButtonBehavior
-from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.dialog import MDDialog
-from kivymd.uix.screen import MDScreen
 
 import library
 import storage
 from core.index import IndexedPhoto, Keyword
 from ui import dialogs
-from ui.thumbnail_loader import Thumbnail, ThumbnailLoader
+from ui.thumbnail_loader import ThumbnailLoader
+from ui.widgets import RoundedPhoto, RowCard, SnapScreen
 
 Builder.load_string("""
+#:import theme ui.theme
+
 <PhotoCell>:
     fit_mode: "cover"
+    radius: dp(theme.THUMB_RADIUS)
     size_hint_y: None
     height: self.width
-    canvas.before:
-        Color:
-            rgba: app.theme_cls.bg_light
-        Rectangle:
-            pos: self.pos
-            size: self.size
 
-<GroupCell>:
-    orientation: "vertical"
-    size_hint_y: None
-    height: self.width
-    padding: dp(8)
-    md_bg_color: app.theme_cls.bg_light
-    MDIcon:
-        icon: "folder"
-        halign: "center"
-        font_size: sp(44)
-        theme_text_color: "Custom"
-        text_color: app.theme_cls.primary_color
-    MDLabel:
+<FolderCard>:
+    IconGlyph:
+        icon: "folder-outline"
+        font_size: sp(theme.CARD_ICON_SIZE)
+        color: theme.ACCENT
+    Label:
         text: root.group.keyword.term
-        halign: "center"
-        font_style: "Body2"
+        font_name: theme.FONT_REGULAR
+        font_size: sp(theme.FONT_BODY)
+        color: theme.TEXT
+        halign: "left"
+        valign: "center"
+        text_size: self.size
         shorten: True
-        size_hint_y: None
-        height: self.texture_size[1]
-    MDLabel:
+    Label:
         text: str(root.group.photo_count)
-        halign: "center"
-        font_style: "Caption"
-        theme_text_color: "Hint"
-        size_hint_y: None
-        height: self.texture_size[1]
+        font_name: theme.FONT
+        font_size: sp(theme.FONT_SMALL)
+        color: theme.TEXT_MUTED
+        size_hint_x: None
+        width: self.texture_size[0]
 
 <GalleryScreen>:
+    md_bg_color: theme.LAYER_0
     MDBoxLayout:
         orientation: "vertical"
-        MDTopAppBar:
+        ScreenBar:
             title: root.group.term if root.group else "Galeria"
-            left_action_items: [["arrow-left", lambda _button: root.navigate_back()]]
-            right_action_items:
-                [["tag-multiple", lambda _button: root.dispatch("on_keywords_requested")],
-                ["database-refresh", lambda _button: root.confirm_rebuild()]]
+            on_back: root.navigate_back()
+            ToolIcon:
+                icon: "tag-multiple-outline"
+                pos_hint: {"center_y": .5}
+                on_release: root.dispatch("on_keywords_requested")
+            ToolIcon:
+                icon: "database-refresh-outline"
+                pos_hint: {"center_y": .5}
+                on_release: root.confirm_rebuild()
         MDBoxLayout:
             adaptive_height: True
-            padding: dp(16), dp(8)
-            MDTextField:
-                id: search_field
-                hint_text: "Buscar na anotação"
-                icon_left: "magnify"
-                on_text: root.refresh()
+            padding: dp(theme.PADDING), dp(theme.SPACING)
+            FieldBox:
+                size_hint_y: None
+                height: dp(theme.SEARCH_HEIGHT)
+                radius: [self.height / 2]
+                IconGlyph:
+                    icon: "magnify"
+                    color: theme.TEXT_MUTED
+                TextInput:
+                    id: search_field
+                    hint_text: "Buscar na anotação"
+                    multiline: False
+                    write_tab: False
+                    background_normal: ""
+                    background_active: ""
+                    background_color: theme.TRANSPARENT
+                    foreground_color: theme.TEXT
+                    hint_text_color: theme.TEXT_MUTED
+                    cursor_color: theme.ACCENT
+                    font_name: theme.FONT
+                    font_size: sp(theme.FONT_BODY)
+                    padding: 0, (self.height - self.line_height) / 2
+                    on_text: root.refresh()
         MDLabel:
             text: root.message
+            font_name: theme.FONT
             halign: "center"
-            theme_text_color: "Hint"
+            theme_text_color: "Custom"
+            text_color: theme.TEXT_MUTED
             size_hint_y: None
-            height: dp(56) if self.text else 0
+            height: dp(theme.MESSAGE_HEIGHT) if self.text else 0
         MDScrollView:
-            MDGridLayout:
-                id: grid
-                cols: 3
+            MDBoxLayout:
+                orientation: "vertical"
                 adaptive_height: True
-                spacing: dp(2)
-                col_force_default: True
-                col_default_width: (self.width - dp(4)) / 3
+                padding: dp(theme.PADDING), 0, dp(theme.PADDING), dp(theme.PADDING)
+                spacing: dp(theme.PADDING)
+                MDBoxLayout:
+                    id: folders
+                    orientation: "vertical"
+                    adaptive_height: True
+                    spacing: dp(theme.SPACING)
+                MDGridLayout:
+                    id: grid
+                    cols: 3
+                    adaptive_height: True
+                    spacing: dp(theme.GRID_SPACING)
+                    col_force_default: True
+                    col_default_width: (self.width - 2 * dp(theme.GRID_SPACING)) / 3
 """)
 
 
-class PhotoCell(ButtonBehavior, Thumbnail):
+class PhotoCell(ButtonBehavior, RoundedPhoto):
     photo = ObjectProperty(None)
 
 
-class GroupCell(ButtonBehavior, MDBoxLayout):
+class FolderCard(ButtonBehavior, RowCard):
     group = ObjectProperty(None)
 
 
-class GalleryScreen(MDScreen):
+class GalleryScreen(SnapScreen):
     __events__ = ("on_photo_selected", "on_keywords_requested", "on_back")
     message = StringProperty("")
     group = ObjectProperty(None, allownone=True)
@@ -109,13 +135,14 @@ class GalleryScreen(MDScreen):
         index_path = storage.index_path()
         keyword_id = self.group.id if self.group else None
         photos = library.find_photos(index_path, term, keyword_id)
-        # Os grupos aparecem como pastas na raiz; dentro de um grupo ou numa
-        # busca, só a grade de fotos.
+        # As pastas só aparecem na raiz e sem busca; dentro de um grupo ou
+        # numa busca, só a grade de fotos.
         groups = library.groups(index_path) if not term and self.group is None else []
         self.message = "" if photos or groups else self._empty_message(term)
-        self.ids.grid.clear_widgets()
+        self.ids.folders.clear_widgets()
         for group in groups:
-            self.ids.grid.add_widget(GroupCell(group=group, on_release=self._open_group))
+            self.ids.folders.add_widget(FolderCard(group=group, on_release=self._open_group))
+        self.ids.grid.clear_widgets()
         for photo in photos:
             cell = PhotoCell(photo=photo, on_release=self._select)
             self.ids.grid.add_widget(cell)
@@ -153,11 +180,11 @@ class GalleryScreen(MDScreen):
     def on_back(self) -> None:
         pass
 
+    def _open_group(self, card: FolderCard) -> None:
+        self.open_group(card.group.keyword)
+
     def _select(self, cell: PhotoCell) -> None:
         self.dispatch("on_photo_selected", cell.photo)
-
-    def _open_group(self, cell: GroupCell) -> None:
-        self.open_group(cell.group.keyword)
 
     def _empty_message(self, term: str) -> str:
         if term:

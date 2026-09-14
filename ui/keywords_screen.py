@@ -1,46 +1,69 @@
 from kivy.lang import Builder
 from kivy.properties import ObjectProperty, StringProperty
+from kivy.uix.behaviors import ButtonBehavior
 from kivymd.toast import toast
-from kivymd.uix.list import IconLeftWidget, IconRightWidget, OneLineAvatarIconListItem
-from kivymd.uix.screen import MDScreen
 
 import library
 import storage
 from core.index import DuplicateKeywordError, Keyword
 from ui import dialogs
+from ui.widgets import RowCard, SnapScreen
 
 Builder.load_string("""
+#:import theme ui.theme
+
 <KeywordItem>:
-    text: root.keyword.term
     on_release: root.dispatch("on_edit_requested")
-    IconLeftWidget:
-        icon: "tag"
-    IconRightWidget:
-        icon: "delete"
+    IconGlyph:
+        icon: "tag-outline"
+        font_size: sp(theme.CARD_ICON_SIZE)
+        color: theme.ACCENT
+    Label:
+        text: root.keyword.term
+        font_name: theme.FONT_REGULAR
+        font_size: sp(theme.FONT_BODY)
+        color: theme.TEXT
+        halign: "left"
+        valign: "center"
+        text_size: self.size
+        shorten: True
+    ToolIcon:
+        icon: "delete-outline"
+        pos_hint: {"center_y": .5}
         on_release: root.dispatch("on_remove_requested")
 
 <KeywordsScreen>:
+    md_bg_color: theme.LAYER_0
     MDBoxLayout:
         orientation: "vertical"
-        MDTopAppBar:
+        ScreenBar:
             title: "Palavras-chave"
-            left_action_items: [["arrow-left", lambda _button: root.dispatch("on_back")]]
-            right_action_items: [["plus", lambda _button: root.prompt_new()]]
+            on_back: root.dispatch("on_back")
+            ToolIcon:
+                icon: "plus"
+                pos_hint: {"center_y": .5}
+                on_release: root.prompt_new()
         MDLabel:
             text: root.message
+            font_name: theme.FONT
             halign: "center"
-            theme_text_color: "Hint"
+            theme_text_color: "Custom"
+            text_color: theme.TEXT_MUTED
             size_hint_y: None
-            height: dp(56) if self.text else 0
+            height: dp(theme.MESSAGE_HEIGHT) if self.text else 0
         MDScrollView:
-            MDList:
+            MDBoxLayout:
                 id: keyword_list
+                orientation: "vertical"
+                adaptive_height: True
+                padding: dp(theme.PADDING), dp(theme.SPACING), dp(theme.PADDING), dp(theme.PADDING)
+                spacing: dp(theme.SPACING)
 """)
 
 DUPLICATE_MESSAGE = "Já existe uma palavra-chave equivalente."
 
 
-class KeywordItem(OneLineAvatarIconListItem):
+class KeywordItem(ButtonBehavior, RowCard):
     __events__ = ("on_edit_requested", "on_remove_requested")
     keyword = ObjectProperty(None)
 
@@ -51,7 +74,7 @@ class KeywordItem(OneLineAvatarIconListItem):
         pass
 
 
-class KeywordsScreen(MDScreen):
+class KeywordsScreen(SnapScreen):
     __events__ = ("on_back",)
     message = StringProperty("")
 

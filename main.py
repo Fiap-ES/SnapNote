@@ -1,5 +1,17 @@
 from pathlib import Path
 
+from kivy.config import Config
+from kivy.utils import platform
+
+from ui import theme
+
+if platform != "android":
+    # A janela de desktop imita a geometria do aparelho; a configuração
+    # precisa vir antes de qualquer import que crie a janela.
+    Config.set("graphics", "width", str(theme.WINDOW_WIDTH))
+    Config.set("graphics", "height", str(theme.WINDOW_HEIGHT))
+    Config.set("graphics", "resizable", "0")
+
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.screenmanager import ScreenManager
@@ -25,15 +37,19 @@ PREVIEW_SIZE = 1024
 class SnapNoteApp(MDApp):
     def build(self) -> ScreenManager:
         self.theme_cls.theme_style = "Dark"
+        self.theme_cls.primary_palette = theme.PALETTE
+        self.theme_cls.primary_hue = theme.HUE
+        self.theme_cls.accent_palette = theme.PALETTE
         # No Android o teclado virtual cobriria o campo de anotação; neste
         # modo o Kivy desloca a janela até o widget focado ficar acima dele.
         Window.softinput_mode = "below_target"
         Window.bind(on_keyboard=self.on_window_key)
 
         previews = ThumbnailLoader(PREVIEW_SIZE)
-        self.camera = CameraScreen(name="camera")
+        thumbnails = ThumbnailLoader(GRID_THUMBNAIL_SIZE)
+        self.camera = CameraScreen(thumbnails, name="camera")
         self.note = NoteScreen(previews, name="note")
-        self.gallery = GalleryScreen(ThumbnailLoader(GRID_THUMBNAIL_SIZE), name="gallery")
+        self.gallery = GalleryScreen(thumbnails, name="gallery")
         self.detail = DetailScreen(previews, name="detail")
         self.keywords = KeywordsScreen(name="keywords")
 
@@ -59,6 +75,7 @@ class SnapNoteApp(MDApp):
         return manager
 
     def show_camera(self) -> None:
+        self.camera.refresh_last_photo()
         self.root.current = "camera"
         self.camera.start_camera()
 
@@ -123,6 +140,7 @@ class SnapNoteApp(MDApp):
     def on_start(self) -> None:
         # camera4kivy exige que connect_camera ocorra pelo menos um frame
         # depois de on_start.
+        self.camera.refresh_last_photo()
         Clock.schedule_once(lambda _dt: request_app_permissions(self.on_permissions))
 
     def on_permissions(self, status: PermissionStatus) -> None:

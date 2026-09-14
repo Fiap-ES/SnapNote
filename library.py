@@ -1,8 +1,20 @@
+from datetime import datetime
 from pathlib import Path
 
 import media_store
 from core.index import Group, IndexedPhoto, Keyword, open_index
 from core.search import search
+
+CAPTURE_NAME_FORMAT = "%Y%m%d_%H%M%S_%f"
+
+
+def capture_time(image_path: Path) -> datetime | None:
+    # O nome do arquivo é o carimbo de captura gerado pelo app; fotos de
+    # outra origem, indexadas pela reconstrução, não seguem o padrão.
+    try:
+        return datetime.strptime(image_path.stem, CAPTURE_NAME_FORMAT)
+    except ValueError:
+        return None
 
 
 def find_photos(

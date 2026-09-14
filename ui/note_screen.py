@@ -5,7 +5,6 @@ from kivy.clock import mainthread
 from kivy.lang import Builder
 from kivy.properties import BooleanProperty, StringProperty
 from kivymd.toast import toast
-from kivymd.uix.screen import MDScreen
 
 import notes
 import speech
@@ -14,40 +13,55 @@ from permissions import request_microphone_permission
 from speech import SpeechFailure
 from ui import dialogs
 from ui.thumbnail_loader import ThumbnailLoader
+from ui.widgets import SnapScreen
 
 Builder.load_string("""
+#:import theme ui.theme
+
 <NoteScreen>:
+    md_bg_color: theme.LAYER_0
     MDBoxLayout:
         orientation: "vertical"
-        padding: dp(16)
-        spacing: dp(16)
-        Thumbnail:
+        padding: dp(theme.PADDING)
+        spacing: dp(theme.PADDING)
+        Widget:
+        RoundedPhoto:
             id: thumbnail
-            fit_mode: "contain"
+            size_hint_y: None
+            height: root.height * theme.NOTE_IMAGE_SHARE
         MDBoxLayout:
-            adaptive_height: True
-            spacing: dp(8)
-            MDTextField:
-                id: note_field
-                hint_text: "Ouvindo..." if root.listening else "Anotação"
-                mode: "rectangle"
-                multiline: True
-                max_height: dp(200)
-            MDIconButton:
+            size_hint_y: None
+            height: dp(theme.NOTE_FIELD_HEIGHT)
+            spacing: dp(theme.SPACING)
+            FieldBox:
+                padding: dp(theme.PADDING), dp(theme.SPACING)
+                TextInput:
+                    id: note_field
+                    hint_text: "Ouvindo..." if root.listening else "Anotação"
+                    background_normal: ""
+                    background_active: ""
+                    background_color: theme.TRANSPARENT
+                    foreground_color: theme.TEXT
+                    hint_text_color: theme.TEXT_MUTED
+                    cursor_color: theme.ACCENT
+                    font_name: theme.FONT
+                    font_size: sp(theme.FONT_BODY)
+                    padding: 0
+            ToolIcon:
                 icon: "microphone"
                 pos_hint: {"center_y": .5}
-                theme_icon_color: "Custom"
-                icon_color: (1, 1, 1, 1) if root.listening else app.theme_cls.primary_color
-                md_bg_color: app.theme_cls.error_color if root.listening else (0, 0, 0, 0)
+                icon_color: theme.ON_ACCENT if root.listening else theme.TEXT
+                md_bg_color: theme.ACCENT if root.listening else theme.TRANSPARENT
                 on_release: root.dictate()
+        Widget:
         MDBoxLayout:
             adaptive_size: True
-            spacing: dp(16)
+            spacing: dp(theme.PADDING)
             pos_hint: {"center_x": .5}
             MDFlatButton:
                 text: root.cancel_label
                 on_release: root.cancel()
-            MDRaisedButton:
+            MDRoundFlatButton:
                 text: "Salvar"
                 on_release: root.save()
 """)
@@ -60,7 +74,7 @@ FAILURE_MESSAGES = {
 }
 
 
-class NoteScreen(MDScreen):
+class NoteScreen(SnapScreen):
     photo_path = StringProperty("")
     cancel_label = StringProperty("")
     listening = BooleanProperty(False)
