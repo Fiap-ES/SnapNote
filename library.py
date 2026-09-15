@@ -6,6 +6,7 @@ from pathlib import Path
 import media_store
 from core.index import Group, IndexedPhoto, Keyword, open_index
 from core.search import search
+from core.taxonomy import TaxonomyPath
 
 CAPTURE_NAME_FORMAT = "%Y%m%d_%H%M%S_%f"
 
@@ -19,6 +20,13 @@ class DateSection:
 @dataclass(frozen=True)
 class Album:
     group: Group
+    cover: IndexedPhoto
+
+
+@dataclass(frozen=True)
+class TaxonomyAlbum:
+    node: TaxonomyPath
+    photo_count: int
     cover: IndexedPhoto
 
 
@@ -64,6 +72,19 @@ def albums(index_path: Path) -> list[Album]:
             Album(group, max(index.group(group.keyword.id), key=_capture_order))
             for group in index.groups()
         ]
+
+
+def taxonomy_albums(index_path: Path, parent: TaxonomyPath | None = None) -> list[TaxonomyAlbum]:
+    with open_index(index_path) as index:
+        return [
+            TaxonomyAlbum(group.node, group.photo_count, max(index.classified(group.node), key=_capture_order))
+            for group in index.taxonomy_children(parent)
+        ]
+
+
+def classified_photos(index_path: Path, node: TaxonomyPath) -> list[IndexedPhoto]:
+    with open_index(index_path) as index:
+        return sorted(index.classified(node), key=_capture_order, reverse=True)
 
 
 def keywords(index_path: Path) -> list[Keyword]:

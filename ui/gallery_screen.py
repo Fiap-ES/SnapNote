@@ -1,9 +1,10 @@
 from datetime import date
+from pathlib import Path
 from threading import Thread
 
 from kivy.clock import mainthread
 from kivy.lang import Builder
-from kivy.properties import BooleanProperty, ObjectProperty, OptionProperty, StringProperty
+from kivy.properties import BooleanProperty, NumericProperty, ObjectProperty, OptionProperty, StringProperty
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.label import Label
 from kivymd.uix.boxlayout import MDBoxLayout
@@ -13,6 +14,7 @@ from kivymd.uix.gridlayout import MDGridLayout
 import library
 import storage
 from core.index import IndexedPhoto, Keyword
+from core.taxonomy import TaxonomyPath
 from ui import dialogs
 from ui.dates import section_label
 from ui.thumbnail_loader import ThumbnailLoader
@@ -62,18 +64,26 @@ Builder.load_string("""
         radius: dp(theme.CARD_RADIUS)
         size_hint_y: None
         height: self.width
+    MDBoxLayout:
+        adaptive_height: True
+        spacing: dp(theme.SPACING) / 2
+        IconGlyph:
+            icon: root.kind_icon
+            font_size: sp(theme.FONT_LABEL)
+            color: theme.TEXT_MUTED
+            pos_hint: {"center_y": .5}
+        Label:
+            text: root.title
+            font_name: theme.FONT_REGULAR
+            font_size: sp(theme.FONT_BODY)
+            color: theme.TEXT
+            halign: "left"
+            text_size: self.width, None
+            size_hint_y: None
+            height: self.texture_size[1]
+            shorten: True
     Label:
-        text: root.album.group.keyword.term
-        font_name: theme.FONT_REGULAR
-        font_size: sp(theme.FONT_BODY)
-        color: theme.TEXT
-        halign: "left"
-        text_size: self.width, None
-        size_hint_y: None
-        height: self.texture_size[1]
-        shorten: True
-    Label:
-        text: str(root.album.group.photo_count)
+        text: str(root.photo_count)
         font_name: theme.FONT
         font_size: sp(theme.FONT_SMALL)
         color: theme.TEXT_MUTED
@@ -120,7 +130,7 @@ Builder.load_string("""
     MDBoxLayout:
         orientation: "vertical"
         ScreenBar:
-            title: root.group.term if root.group else "Galeria"
+            title: root.title
             on_back: root.navigate_back()
             ToolIcon:
                 icon: "tag-multiple-outline"
@@ -195,7 +205,10 @@ class AlbumGrid(MDGridLayout):
 
 
 class AlbumCard(ButtonBehavior, MDBoxLayout):
-    album = ObjectProperty(None)
+    title = StringProperty("")
+    photo_count = NumericProperty(0)
+    kind_icon = StringProperty("")
+    target = ObjectProperty(None)
 
 
 class NavItem(ButtonBehavior, MDBoxLayout):
@@ -212,10 +225,16 @@ class NavPill(Card):
         pass
 
 
+KEYWORD_ICON = "tag-outline"
+TAXONOMY_ICON = "file-tree-outline"
+
+
 class GalleryScreen(SnapScreen):
     __events__ = ("on_photo_selected", "on_keywords_requested", "on_back")
     message = StringProperty("")
+    title = StringProperty("Galeria")
     group = ObjectProperty(None, allownone=True)
+    folder = ObjectProperty(None, allownone=True)
     view = OptionProperty("photos", options=["photos", "folders"])
 
     def __init__(self, thumbnails: ThumbnailLoader, **kwargs: object) -> None:
@@ -225,35 +244,48 @@ class GalleryScreen(SnapScreen):
     def refresh(self) -> None:
         term = self.ids.search_field.text
         index_path = storage.index_path()
+        self.title = self._title()
         self.ids.content.clear_widgets()
         if term:
             keyword_id = self.group.id if self.group else None
             self._show_grid(library.find_photos(index_path, term, keyword_id), "Nenhuma anotação contém o texto buscado.")
         elif self.group is not None:
             self._show_grid(library.find_photos(index_path, keyword_id=self.group.id), "Nenhuma foto neste grupo.")
+        elif self.folder is not None:
+            self._show_albums(self._taxonomy_cards(index_path, self.folder), "")
+            self._show_grid(library.classified_photos(index_path, self.folder), "")
         elif self.view == "folders":
-            self._show_albums(library.albums(index_path))
+            cards = self._keyword_cards(index_path) + self._taxonomy_cards(index_path, None)
+            self._show_albums(cards, "Nenhuma pasta ainda.")
         else:
             self._show_sections(library.photo_sections(index_path))
 
     def show_view(self, view: str) -> None:
         self.group = None
+        self.folder = None
         self.view = view
         self.refresh()
 
     def reset(self) -> None:
         self.group = None
+        self.folder = None
         self.view = "photos"
 
     def open_group(self, keyword: Keyword | None) -> None:
         self.group = keyword
         self.refresh()
 
+    def open_folder(self, node: TaxonomyPath | None) -> None:
+        self.folder = node
+        self.refresh()
+
     def navigate_back(self) -> None:
-        if self.group is None:
-            self.dispatch("on_back")
-        else:
+        if self.group is not None:
             self.show_view("folders")
+        elif self.folder is not None:
+            self.open_folder(self.folder.parent)
+        else:
+            self.dispatch("on_back")
 
     def confirm_rebuild(self) -> None:
         dialogs.confirm(
@@ -285,17 +317,44 @@ class GalleryScreen(SnapScreen):
             self.ids.content.add_widget(self._grid(section.photos))
 
     def _show_grid(self, photos: list[IndexedPhoto], empty_message: str) -> None:
-        self.message = "" if photos else empty_message
+        if not photos:
+            self.message = empty_message
+            return
+        self.message = ""
         self.ids.content.add_widget(self._grid(photos))
 
-    def _show_albums(self, albums: list[library.Album]) -> None:
-        self.message = "" if albums else "Nenhuma pasta ainda."
+    def _show_albums(self, cards: list[AlbumCard], empty_message: str) -> None:
+        self.message = "" if cards else empty_message
+        if not cards:
+            return
         grid = AlbumGrid()
-        for album in albums:
-            card = AlbumCard(album=album, on_release=self._open_album)
+        for card in cards:
             grid.add_widget(card)
-            self._thumbnails.display(album.cover.path, card.ids.cover)
         self.ids.content.add_widget(grid)
+
+    def _keyword_cards(self, index_path: Path) -> list[AlbumCard]:
+        return [
+            self._card(album.group.keyword.term, album.group.photo_count, KEYWORD_ICON, album.group.keyword, album.cover)
+            for album in library.albums(index_path)
+        ]
+
+    def _taxonomy_cards(self, index_path: Path, parent: TaxonomyPath | None) -> list[AlbumCard]:
+        return [
+            self._card(album.node.name, album.photo_count, TAXONOMY_ICON, album.node, album.cover)
+            for album in library.taxonomy_albums(index_path, parent)
+        ]
+
+    def _card(self, title: str, count: int, icon: str, target: object, cover: IndexedPhoto) -> AlbumCard:
+        card = AlbumCard(title=title, photo_count=count, kind_icon=icon, target=target, on_release=self._open_album)
+        self._thumbnails.display(cover.path, card.ids.cover)
+        return card
+
+    def _title(self) -> str:
+        if self.group is not None:
+            return self.group.term
+        if self.folder is not None:
+            return self.folder.name
+        return "Galeria"
 
     def _grid(self, photos: list[IndexedPhoto]) -> PhotoGrid:
         grid = PhotoGrid()
@@ -306,7 +365,10 @@ class GalleryScreen(SnapScreen):
         return grid
 
     def _open_album(self, card: AlbumCard) -> None:
-        self.open_group(card.album.group.keyword)
+        if isinstance(card.target, Keyword):
+            self.open_group(card.target)
+        else:
+            self.open_folder(card.target)
 
     def _select(self, cell: PhotoCell) -> None:
         self.dispatch("on_photo_selected", cell.photo)

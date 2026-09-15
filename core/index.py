@@ -7,6 +7,7 @@ from pathlib import Path
 
 from core import exif_store
 from core.keywords import matches
+from core.taxonomy import Taxonomy, TaxonomyPath, children_of, classify, embedded
 from core.text import normalize
 
 SCHEMA = """
@@ -27,6 +28,12 @@ CREATE TABLE IF NOT EXISTS photo_keywords (
     keyword_id INTEGER NOT NULL REFERENCES keywords(id) ON DELETE CASCADE,
     PRIMARY KEY (path, keyword_id)
 );
+CREATE TABLE IF NOT EXISTS photo_paths (
+    path TEXT NOT NULL REFERENCES notes(path) ON DELETE CASCADE,
+    area TEXT NOT NULL,
+    topic TEXT,
+    subtopic TEXT
+);
 """
 
 UPSERT = """
@@ -42,6 +49,7 @@ ON CONFLICT(path) DO UPDATE SET
 PHOTO_COLUMNS = "path, note, captured_at"
 
 INSERT_LINK = "INSERT INTO photo_keywords (path, keyword_id) VALUES (?, ?)"
+INSERT_PATH = "INSERT INTO photo_paths (path, area, topic, subtopic) VALUES (?, ?, ?, ?)"
 
 
 @dataclass(frozen=True)
@@ -70,13 +78,20 @@ class Group:
     photo_count: int
 
 
+@dataclass(frozen=True)
+class TaxonomyGroup:
+    node: TaxonomyPath
+    photo_count: int
+
+
 class DuplicateKeywordError(Exception):
     pass
 
 
 class NoteIndex:
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(self, connection: sqlite3.Connection, taxonomy: Taxonomy) -> None:
         self._connection = connection
+        self._taxonomy = taxonomy
 
     def upsert(self, image_path: str | Path) -> None:
         row = _row_for(Path(image_path))
@@ -86,6 +101,8 @@ class NoteIndex:
             self._connection.execute(UPSERT, row)
             self._connection.execute("DELETE FROM photo_keywords WHERE path = ?", (path,))
             self._connection.executemany(INSERT_LINK, _links(annotated, self.keywords()))
+            self._connection.execute("DELETE FROM photo_paths WHERE path = ?", (path,))
+            self._connection.executemany(INSERT_PATH, _classifications(annotated, self._taxonomy))
 
     def remove(self, image_path: str | Path) -> None:
         with self._connection:
@@ -102,6 +119,7 @@ class NoteIndex:
             self._connection.execute("DELETE FROM notes")
             self._connection.executemany(UPSERT, rows)
             self._connection.executemany(INSERT_LINK, _links(self.notes(), self.keywords()))
+            self._connection.executemany(INSERT_PATH, _classifications(self.notes(), self._taxonomy))
 
     def notes(self) -> list[IndexedNote]:
         rows = self._connection.execute(
@@ -165,6 +183,32 @@ class NoteIndex:
         )
         return [IndexedPhoto(path, note, _parse_time(captured)) for path, note, captured in rows]
 
+    def taxonomy_children(self, parent: TaxonomyPath | None) -> list[TaxonomyGroup]:
+        counts = dict(self._connection.execute(*_count_children(parent)))
+        return [
+            TaxonomyGroup(_child_path(parent, node.name), counts[node.name])
+            for node in children_of(self._taxonomy, parent)
+            if node.name in counts
+        ]
+
+    def classified(self, node: TaxonomyPath) -> list[IndexedPhoto]:
+        conditions, parameters = ["photo_paths.area = ?"], [node.area]
+        if node.topic is not None:
+            conditions.append("photo_paths.topic = ?")
+            parameters.append(node.topic)
+        if node.subtopic is not None:
+            conditions.append("photo_paths.subtopic = ?")
+            parameters.append(node.subtopic)
+        rows = self._connection.execute(
+            f"""
+            SELECT DISTINCT notes.path, notes.note, notes.captured_at
+            FROM notes JOIN photo_paths ON photo_paths.path = notes.path
+            WHERE {" AND ".join(conditions)} ORDER BY notes.path
+            """,
+            parameters,
+        )
+        return [IndexedPhoto(path, note, _parse_time(captured)) for path, note, captured in rows]
+
     def _execute_unique(self, statement: str, parameters: tuple) -> sqlite3.Cursor:
         try:
             return self._connection.execute(statement, parameters)
@@ -173,7 +217,7 @@ class NoteIndex:
 
 
 @contextmanager
-def open_index(db_path: str | Path) -> Iterator[NoteIndex]:
+def open_index(db_path: str | Path, taxonomy: Taxonomy | None = None) -> Iterator[NoteIndex]:
     connection = sqlite3.connect(db_path)
     try:
         # O SQLite só honra ON DELETE CASCADE com a verificação ligada, e ela
@@ -181,7 +225,7 @@ def open_index(db_path: str | Path) -> Iterator[NoteIndex]:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.executescript(SCHEMA)
         _add_capture_column(connection)
-        yield NoteIndex(connection)
+        yield NoteIndex(connection, taxonomy or embedded())
     finally:
         connection.close()
 
@@ -193,6 +237,36 @@ def _links(notes: Iterable[IndexedNote], keywords: Iterable[Keyword]) -> list[tu
         for keyword in keywords
         if matches(keyword.term, note.note)
     ]
+
+
+def _classifications(
+    notes: Iterable[IndexedNote], taxonomy: Taxonomy
+) -> list[tuple[str, str, str | None, str | None]]:
+    return [
+        (note.path, path.area, path.topic, path.subtopic)
+        for note in notes
+        for path in classify(taxonomy, note.note)
+    ]
+
+
+def _count_children(parent: TaxonomyPath | None) -> tuple[str, tuple]:
+    if parent is None:
+        return "SELECT area, COUNT(DISTINCT path) FROM photo_paths GROUP BY area", ()
+    if parent.topic is None:
+        return (
+            "SELECT topic, COUNT(DISTINCT path) FROM photo_paths"
+            " WHERE area = ? AND topic IS NOT NULL GROUP BY topic",
+            (parent.area,),
+        )
+    return (
+        "SELECT subtopic, COUNT(DISTINCT path) FROM photo_paths"
+        " WHERE area = ? AND topic = ? AND subtopic IS NOT NULL GROUP BY subtopic",
+        (parent.area, parent.topic),
+    )
+
+
+def _child_path(parent: TaxonomyPath | None, name: str) -> TaxonomyPath:
+    return TaxonomyPath(name) if parent is None else parent.child(name)
 
 
 def _clean_term(term: str) -> tuple[str, str]:

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import library
 from core.index import Group, IndexedPhoto, Keyword, open_index
+from core.taxonomy import TaxonomyPath
 from tests.conftest import MakeJpeg, indexed_paths, write_capture_time
 
 
@@ -152,3 +153,20 @@ def test_index_photo_registers_a_photo_without_note(tmp_path: Path, make_jpeg: M
     library.index_photo(photo, db_path)
 
     assert library.find_photos(db_path) == [IndexedPhoto(str(photo.resolve()), None)]
+
+
+def test_taxonomy_albums_navigate_levels_with_most_recent_cover(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
+    older = make_jpeg("photos/a.jpg", note="derivadas na aula")
+    newer = make_jpeg("photos/b.jpg", note="regra da cadeia")
+    write_capture_time(older, "2026:09:12 08:00:00")
+    write_capture_time(newer, "2026:09:13 08:00:00")
+    db_path = tmp_path / "snapnote.db"
+    library.rebuild_index(tmp_path / "photos", db_path)
+
+    areas = library.taxonomy_albums(db_path)
+    assert [(a.node, a.photo_count, Path(a.cover.path).name) for a in areas] == [(TaxonomyPath("Cálculo I"), 2, "b.jpg")]
+    topics = library.taxonomy_albums(db_path, TaxonomyPath("Cálculo I"))
+    assert [(a.node.name, a.photo_count) for a in topics] == [("Derivadas", 2)]
+    subtopics = library.taxonomy_albums(db_path, TaxonomyPath("Cálculo I", "Derivadas"))
+    assert [(a.node.name, a.photo_count) for a in subtopics] == [("Regra da cadeia", 1)]
+    assert [Path(p.path).name for p in library.classified_photos(db_path, TaxonomyPath("Cálculo I", "Derivadas"))] == ["b.jpg", "a.jpg"]

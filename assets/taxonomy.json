@@ -1,0 +1,220 @@
+{
+  "versao": 1,
+  "areas": [
+    {
+      "nome": "Cálculo I",
+      "termos": ["cálculo", "cálculo i", "calculo 1"],
+      "topicos": [
+        {
+          "nome": "Limites",
+          "termos": ["limite", "limites", "continuidade"],
+          "subtopicos": [
+            { "nome": "Limites laterais", "termos": ["limite lateral", "limites laterais"] },
+            { "nome": "Indeterminações", "termos": ["indeterminação", "indeterminações", "l'hôpital", "lhopital"] }
+          ]
+        },
+        {
+          "nome": "Derivadas",
+          "termos": ["derivada", "derivadas", "diferenciação", "derivar"],
+          "subtopicos": [
+            { "nome": "Regra da cadeia", "termos": ["regra da cadeia", "regra de cadeia"] },
+            { "nome": "Regra do produto", "termos": ["regra do produto"] },
+            { "nome": "Regra do quociente", "termos": ["regra do quociente"] },
+            { "nome": "Derivada implícita", "termos": ["derivada implícita", "derivação implícita"] }
+          ]
+        },
+        {
+          "nome": "Integrais",
+          "termos": ["integral", "integrais", "integração", "primitiva"],
+          "subtopicos": [
+            { "nome": "Integral definida", "termos": ["integral definida"] },
+            { "nome": "Substituição", "termos": ["substituição", "mudança de variável"] },
+            { "nome": "Integração por partes", "termos": ["integração por partes", "por partes"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Álgebra Linear",
+      "termos": ["álgebra linear", "algebra linear"],
+      "topicos": [
+        {
+          "nome": "Matrizes",
+          "termos": ["matriz", "matrizes", "determinante", "determinantes"],
+          "subtopicos": [
+            { "nome": "Matriz inversa", "termos": ["matriz inversa", "inversa"] },
+            { "nome": "Escalonamento", "termos": ["escalonamento", "gauss", "gauss-jordan"] }
+          ]
+        },
+        {
+          "nome": "Vetores",
+          "termos": ["vetor", "vetores", "produto escalar", "produto vetorial"],
+          "subtopicos": [
+            { "nome": "Base e dimensão", "termos": ["base", "dimensão", "espaço vetorial"] },
+            { "nome": "Autovalores", "termos": ["autovalor", "autovalores", "autovetor", "autovetores"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Física",
+      "termos": ["física", "fisica"],
+      "topicos": [
+        {
+          "nome": "Mecânica",
+          "termos": ["mecânica", "cinemática", "dinâmica"],
+          "subtopicos": [
+            { "nome": "Leis de Newton", "termos": ["lei de newton", "leis de newton", "newton"] },
+            { "nome": "Movimento uniforme", "termos": ["movimento uniforme", "mru", "mruv"] },
+            { "nome": "Energia e trabalho", "termos": ["energia cinética", "energia potencial", "trabalho"] }
+          ]
+        },
+        {
+          "nome": "Eletricidade",
+          "termos": ["eletricidade", "elétrico", "circuito", "circuitos"],
+          "subtopicos": [
+            { "nome": "Lei de Ohm", "termos": ["lei de ohm", "ohm", "resistência"] },
+            { "nome": "Capacitores", "termos": ["capacitor", "capacitores", "capacitância"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Programação",
+      "termos": ["programação", "programacao", "código", "codigo", "algoritmo"],
+      "topicos": [
+        {
+          "nome": "Estruturas de dados",
+          "termos": ["estrutura de dados", "estruturas de dados"],
+          "subtopicos": [
+            { "nome": "Listas e arrays", "termos": ["lista", "listas", "array", "arrays", "vetor"] },
+            { "nome": "Árvores", "termos": ["árvore", "árvores", "árvore binária"] },
+            { "nome": "Filas e pilhas", "termos": ["fila", "filas", "pilha", "pilhas"] }
+          ]
+        },
+        {
+          "nome": "Banco de dados",
+          "termos": ["banco de dados", "sql", "query", "consulta"],
+          "subtopicos": [
+            { "nome": "Modelagem", "termos": ["modelagem", "entidade relacionamento", "normalização"] },
+            { "nome": "Joins", "termos": ["join", "joins", "inner join", "left join"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Documentos",
+      "termos": ["documento", "documentos"],
+      "topicos": [
+        {
+          "nome": "Fiscais",
+          "termos": ["nota fiscal", "cupom fiscal", "recibo", "comprovante"],
+          "subtopicos": [
+            { "nome": "Recibos", "termos": ["recibo", "recibos"] },
+            { "nome": "Notas fiscais", "termos": ["nota fiscal", "notas fiscais", "nfe", "cupom fiscal"] }
+          ]
+        },
+        {
+          "nome": "Contratos",
+          "termos": ["contrato", "contratos", "termo de", "aditivo"],
+          "subtopicos": [
+            { "nome": "Aluguel", "termos": ["aluguel", "locação", "locatário", "locador"] },
+            { "nome": "Prestação de serviço", "termos": ["prestação de serviço", "prestador"] }
+          ]
+        },
+        {
+          "nome": "Pessoais",
+          "termos": ["identidade", "certidão", "carteira"],
+          "subtopicos": [
+            { "nome": "Certidões", "termos": ["certidão", "certidões"] },
+            { "nome": "Comprovante de residência", "termos": ["comprovante de residência", "conta de luz", "conta de água"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Compras",
+      "termos": ["compra", "compras", "lista de compras"],
+      "topicos": [
+        {
+          "nome": "Mercado",
+          "termos": ["mercado", "supermercado", "feira", "hortifruti"],
+          "subtopicos": [
+            { "nome": "Lista de compras", "termos": ["lista de compras", "lista do mercado"] }
+          ]
+        },
+        {
+          "nome": "Farmácia",
+          "termos": ["farmácia", "farmacia", "drogaria"],
+          "subtopicos": []
+        },
+        {
+          "nome": "Pet shop",
+          "termos": ["pet shop", "petshop", "ração", "veterinário"],
+          "subtopicos": []
+        }
+      ]
+    },
+    {
+      "nome": "Trabalho",
+      "termos": ["trabalho", "reunião", "reuniao", "projeto"],
+      "topicos": [
+        {
+          "nome": "Reuniões",
+          "termos": ["reunião", "reuniões", "ata", "pauta", "daily"],
+          "subtopicos": [
+            { "nome": "Atas", "termos": ["ata", "atas"] },
+            { "nome": "Quadro branco", "termos": ["quadro branco", "lousa", "whiteboard", "brainstorm"] }
+          ]
+        },
+        {
+          "nome": "Planejamento",
+          "termos": ["planejamento", "cronograma", "roadmap", "backlog"],
+          "subtopicos": [
+            { "nome": "Cronograma", "termos": ["cronograma", "prazo", "entrega"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Casa",
+      "termos": ["casa", "residência", "apartamento"],
+      "topicos": [
+        {
+          "nome": "Receitas",
+          "termos": ["receita", "receitas", "ingredientes", "modo de preparo", "cardápio"],
+          "subtopicos": [
+            { "nome": "Sobremesas", "termos": ["sobremesa", "bolo", "torta", "doce"] },
+            { "nome": "Pratos principais", "termos": ["almoço", "jantar", "prato principal"] }
+          ]
+        },
+        {
+          "nome": "Manutenção",
+          "termos": ["manutenção", "reforma", "conserto", "obra"],
+          "subtopicos": [
+            { "nome": "Medidas", "termos": ["medida", "medidas", "metragem", "dimensões"] },
+            { "nome": "Orçamentos", "termos": ["orçamento", "orçamentos"] }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "Veículo",
+      "termos": ["veículo", "veiculo", "carro", "moto", "automóvel"],
+      "topicos": [
+        {
+          "nome": "Manutenção",
+          "termos": ["revisão", "oficina", "mecânico", "troca de óleo"],
+          "subtopicos": [
+            { "nome": "Ordem de serviço", "termos": ["ordem de serviço", "orçamento oficina"] }
+          ]
+        },
+        {
+          "nome": "Documentação",
+          "termos": ["crlv", "ipva", "licenciamento", "multa"],
+          "subtopicos": []
+        }
+      ]
+    }
+  ]
+}
