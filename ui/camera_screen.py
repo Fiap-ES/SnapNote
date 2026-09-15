@@ -1,19 +1,27 @@
 from datetime import datetime
+from pathlib import Path
 
 from camera4kivy import Preview
+from kivy.animation import Animation
 from kivy.clock import mainthread
+from kivy.input import MotionEvent
 from kivy.lang import Builder
 from kivy.logger import Logger
+from kivy.metrics import dp
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.uix.label import Label
 from kivy.uix.behaviors import ButtonBehavior
 from kivymd.toast import toast
 
+import library
+import notes
 import storage
 from library import CAPTURE_NAME_FORMAT, find_photos
 from permissions import camera_permission_granted, photo_saving_allowed
+from ui import dialogs, theme, widgets
+from ui.note_panel import NotePanel
 from ui.thumbnail_loader import Thumbnail, ThumbnailLoader
-from ui.widgets import SnapScreen
+from ui.widgets import Island, OverlayBehavior, SnapScreen
 
 Builder.load_string("""
 #:import theme ui.theme
@@ -61,6 +69,46 @@ Builder.load_string("""
             size: self.size
     canvas.after:
         PopMatrix
+
+<CapturePanel>:
+    adaptive_width: True
+    padding: dp(theme.ISLAND_INSET), 0, 0, 0
+    spacing: dp(theme.SPACING) / 2
+    opacity: 0
+    RoundedPhoto:
+        id: thumbnail
+        fit_mode: "cover"
+        radius: dp(theme.LAST_PHOTO_RADIUS)
+        size_hint: None, None
+        size: dp(theme.LAST_PHOTO_SIZE), dp(theme.LAST_PHOTO_SIZE)
+        pos_hint: {"center_y": .5}
+    ToolIcon:
+        icon: "share-variant-outline"
+        pos_hint: {"center_y": .5}
+        on_release: root.dispatch("on_decorative")
+    ToolIcon:
+        icon: "pencil-outline"
+        pos_hint: {"center_y": .5}
+        on_release: root.dispatch("on_decorative")
+    ToolIcon:
+        icon: "delete-outline"
+        pos_hint: {"center_y": .5}
+        on_release: root.dispatch("on_delete")
+    Widget:
+        size_hint: None, None
+        size: dp(1), dp(theme.ICON_SIZE)
+        pos_hint: {"center_y": .5}
+        canvas:
+            Color:
+                rgba: theme.DIVIDER
+            Rectangle:
+                pos: self.pos
+                size: self.size
+    ToolIcon:
+        icon: "brain"
+        icon_color: theme.ACCENT
+        pos_hint: {"center_y": .5}
+        on_release: root.dispatch("on_annotate")
 
 <LastPhotoButton>:
     fit_mode: "cover"
@@ -132,6 +180,12 @@ Builder.load_string("""
                 right: preview_area.right - dp(theme.PADDING)
                 center_y: zoom_row.center_y
                 on_release: root.notice()
+            CapturePanel:
+                id: capture_panel
+                pos_hint: {"center_x": .5}
+                on_decorative: root.notice()
+                on_delete: root.confirm_delete_capture()
+                on_annotate: root.open_note_panel()
             MDBoxLayout:
                 id: zoom_row
                 adaptive_size: True
@@ -196,9 +250,19 @@ Builder.load_string("""
                 icon_size: sp(theme.FLIP_ICON_SIZE)
                 pos_hint: {"center_x": theme.FLIP_X, "center_y": .5}
                 on_release: root.flip_camera()
+    NotePanel:
+        id: note_panel
+        width: root.width - 2 * dp(theme.PADDING)
+        pos_hint: {"center_x": .5}
+        on_save: root.save_note(args[1])
+        on_cancel: root.hide_note_panel()
 """)
 
-PROTOTYPE_NOTICE = "Elemento ilustrativo, fora do escopo deste protótipo."
+# O zoom inicial do camera4kivy é a escala linear do CameraX (padrão 0.5, já
+# ampliado): 0 corresponde ao menor zoom que o aparelho suporta, inclusive
+# abaixo de 1x quando há ultrawide. O provedor aplica o valor logo após
+# vincular a câmera, e a conexão é refeita a cada volta para esta tela.
+MINIMUM_ZOOM = 0
 
 
 def timestamp_name() -> str:
@@ -207,6 +271,20 @@ def timestamp_name() -> str:
 
 class LastPhotoButton(ButtonBehavior, Thumbnail):
     pass
+
+
+class CapturePanel(OverlayBehavior, Island):
+    __events__ = ("on_decorative", "on_delete", "on_annotate")
+    photo_path = StringProperty("")
+
+    def on_decorative(self) -> None:
+        pass
+
+    def on_delete(self) -> None:
+        pass
+
+    def on_annotate(self) -> None:
+        pass
 
 
 class FloatingIcon(ButtonBehavior, Label):
@@ -236,6 +314,7 @@ class CameraScreen(SnapScreen):
             return
         preview.connect_camera(
             enable_video=False,
+            default_zoom=MINIMUM_ZOOM,
             default_flash=self._flash_state(),
             filepath_callback=self.on_photo_saved,
         )
@@ -265,6 +344,65 @@ class CameraScreen(SnapScreen):
             name=timestamp_name(),
         )
 
+    def show_capture(self, file_path: str) -> None:
+        panel = self.ids.capture_panel
+        panel.photo_path = file_path
+        self._thumbnails.display(file_path, panel.ids.thumbnail)
+        resting = self.ids.zoom_row.top + dp(theme.SPACING)
+        panel.y = resting - dp(theme.ISLAND_SLIDE)
+        panel.shown = True
+        Animation(y=resting, opacity=1, d=theme.ISLAND_DURATION, t="out_quad").start(panel)
+
+    def hide_capture(self) -> None:
+        panel = self.ids.capture_panel
+        Animation.cancel_all(panel)
+        panel.opacity = 0
+        panel.shown = False
+
+    def confirm_delete_capture(self) -> None:
+        dialogs.confirm("Excluir esta foto?", "Excluir", self.delete_capture)
+
+    def delete_capture(self) -> None:
+        library.delete_photo(Path(self.ids.capture_panel.photo_path), storage.index_path())
+        self.hide_capture()
+        self.refresh_last_photo()
+
+    def open_note_panel(self) -> None:
+        self.ids.note_panel.open("")
+
+    def hide_note_panel(self) -> None:
+        self.ids.note_panel.close()
+
+    def save_note(self, text: str) -> None:
+        notes.save_note(Path(self.ids.capture_panel.photo_path), text, storage.index_path())
+        self.hide_note_panel()
+        self.hide_capture()
+
+    def dismiss_overlay(self) -> bool:
+        if self.ids.note_panel.shown:
+            self.hide_note_panel()
+            return True
+        if self.ids.capture_panel.shown:
+            self.hide_capture()
+            return True
+        return False
+
+    # Tocar fora do painel de anotação só o fecha; fora da ilha, fecha a
+    # ilha e o toque segue ao destino, para que o obturador já capture.
+    def on_touch_down(self, touch: MotionEvent) -> bool:
+        note_panel, island = self.ids.note_panel, self.ids.capture_panel
+        if note_panel.shown:
+            if not note_panel.collide_point(*touch.pos):
+                self.hide_note_panel()
+                return True
+        elif island.shown and not island.collide_point(*touch.pos):
+            self.hide_capture()
+        return super().on_touch_down(touch)
+
+    def on_pre_leave(self) -> None:
+        self.hide_note_panel()
+        self.hide_capture()
+
     def refresh_last_photo(self) -> None:
         photos = find_photos(storage.index_path())
         if photos:
@@ -273,7 +411,7 @@ class CameraScreen(SnapScreen):
             self.ids.last_photo.texture = None
 
     def notice(self) -> None:
-        toast(PROTOTYPE_NOTICE)
+        widgets.notice()
 
     def _flash_state(self) -> str:
         return "on" if self.flash_on else "off"

@@ -19,8 +19,3 @@ def save_note(image_path: Path, text: str, index_path: Path) -> str | None:
     with open_index(index_path) as index:
         index.upsert(image_path)
     return note
-
-
-def discard_photo(image_path: Path) -> None:
-    image_path.unlink()
-    media_store.notify(image_path)

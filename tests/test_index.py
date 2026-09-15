@@ -1,3 +1,6 @@
+import sqlite3
+from contextlib import closing
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core import exif_store
@@ -6,6 +9,7 @@ from tests.conftest import (
     UNDEFINED_USER_COMMENT,
     MakeJpeg,
     indexed_paths,
+    write_capture_time,
     write_raw_user_comment,
 )
 
@@ -117,3 +121,45 @@ def test_rebuild_completes_with_undefined_user_comment_in_folder(tmp_path: Path,
         str(annotated.resolve()),
         str(from_other_camera.resolve()),
     ]
+
+
+def test_index_stores_capture_time_from_exif(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
+    photo = make_jpeg("fotos/a.jpg", note="Farmácia")
+    write_capture_time(photo, "2026:09:13 10:15:30")
+
+    with open_index(tmp_path / "index.db") as index:
+        index.upsert(photo)
+
+        assert index.all_photos()[0].captured_at == datetime(2026, 9, 13, 10, 15, 30)
+
+
+def test_index_falls_back_to_file_modification_time(tmp_path: Path, make_jpeg: MakeJpeg) -> None:
+    photo = make_jpeg("fotos/a.jpg")
+    modified_at = datetime.fromtimestamp(photo.stat().st_mtime)
+
+    with open_index(tmp_path / "index.db") as index:
+        index.rebuild(tmp_path / "fotos")
+
+        assert index.all_photos()[0].captured_at == modified_at
+
+
+def test_open_index_fills_capture_time_for_rows_indexed_before_the_column(tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    modified_at = datetime(2026, 9, 13, 10, 15, 30, tzinfo=timezone.utc)
+    with closing(sqlite3.connect(db_path)) as connection:
+        connection.execute(
+            "CREATE TABLE notes (path TEXT PRIMARY KEY, note TEXT,"
+            " file_modified_at TEXT NOT NULL, indexed_at TEXT NOT NULL)"
+        )
+        connection.execute(
+            "INSERT INTO notes VALUES ('/antiga.jpg', 'nota', ?, 'x')", (modified_at.isoformat(),)
+        )
+        connection.commit()
+
+    with open_index(db_path) as index:
+        photos = index.all_photos()
+    with open_index(db_path) as index:
+        reopened = index.all_photos()
+
+    assert photos[0].captured_at == modified_at.astimezone().replace(tzinfo=None)
+    assert reopened == photos and reopened[0].captured_at == photos[0].captured_at

@@ -53,11 +53,3 @@ def test_save_note_with_blank_text_removes_existing_note(tmp_path: Path, make_jp
     assert exif_store.read_note(photo) is None
     with open_index(db_path) as index:
         assert index.all_photos() == [IndexedPhoto(str(photo.resolve()), None)]
-
-
-def test_discard_photo_deletes_file(make_jpeg: MakeJpeg) -> None:
-    photo = make_jpeg("photos/a.jpg")
-
-    notes.discard_photo(photo)
-
-    assert not photo.exists()

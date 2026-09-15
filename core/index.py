@@ -1,7 +1,7 @@
 import sqlite3
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS notes (
     path TEXT PRIMARY KEY,
     note TEXT,
     file_modified_at TEXT NOT NULL,
-    indexed_at TEXT NOT NULL
+    indexed_at TEXT NOT NULL,
+    captured_at TEXT
 );
 CREATE TABLE IF NOT EXISTS keywords (
     id INTEGER PRIMARY KEY,
@@ -29,13 +30,16 @@ CREATE TABLE IF NOT EXISTS photo_keywords (
 """
 
 UPSERT = """
-INSERT INTO notes (path, note, file_modified_at, indexed_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO notes (path, note, file_modified_at, indexed_at, captured_at)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(path) DO UPDATE SET
     note = excluded.note,
     file_modified_at = excluded.file_modified_at,
-    indexed_at = excluded.indexed_at
+    indexed_at = excluded.indexed_at,
+    captured_at = excluded.captured_at
 """
+
+PHOTO_COLUMNS = "path, note, captured_at"
 
 INSERT_LINK = "INSERT INTO photo_keywords (path, keyword_id) VALUES (?, ?)"
 
@@ -44,6 +48,9 @@ INSERT_LINK = "INSERT INTO photo_keywords (path, keyword_id) VALUES (?, ?)"
 class IndexedPhoto:
     path: str
     note: str | None
+    # A data não entra na igualdade: duas leituras da mesma foto continuam
+    # sendo a mesma foto, e índices anteriores a esta coluna a têm nula.
+    captured_at: datetime | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -98,13 +105,13 @@ class NoteIndex:
 
     def notes(self) -> list[IndexedNote]:
         rows = self._connection.execute(
-            "SELECT path, note FROM notes WHERE note IS NOT NULL ORDER BY path"
+            f"SELECT {PHOTO_COLUMNS} FROM notes WHERE note IS NOT NULL ORDER BY path"
         )
-        return [IndexedNote(path, note) for path, note in rows]
+        return [IndexedNote(path, note, _parse_time(captured)) for path, note, captured in rows]
 
     def all_photos(self) -> list[IndexedPhoto]:
-        rows = self._connection.execute("SELECT path, note FROM notes ORDER BY path")
-        return [IndexedPhoto(path, note) for path, note in rows]
+        rows = self._connection.execute(f"SELECT {PHOTO_COLUMNS} FROM notes ORDER BY path")
+        return [IndexedPhoto(path, note, _parse_time(captured)) for path, note, captured in rows]
 
     def keywords(self) -> list[Keyword]:
         rows = self._connection.execute("SELECT id, term FROM keywords ORDER BY normalized")
@@ -150,13 +157,13 @@ class NoteIndex:
     def group(self, keyword_id: int) -> list[IndexedPhoto]:
         rows = self._connection.execute(
             """
-            SELECT notes.path, notes.note
+            SELECT notes.path, notes.note, notes.captured_at
             FROM notes JOIN photo_keywords ON photo_keywords.path = notes.path
             WHERE photo_keywords.keyword_id = ? ORDER BY notes.path
             """,
             (keyword_id,),
         )
-        return [IndexedPhoto(path, note) for path, note in rows]
+        return [IndexedPhoto(path, note, _parse_time(captured)) for path, note, captured in rows]
 
     def _execute_unique(self, statement: str, parameters: tuple) -> sqlite3.Cursor:
         try:
@@ -173,6 +180,7 @@ def open_index(db_path: str | Path) -> Iterator[NoteIndex]:
         # é por conexão.
         connection.execute("PRAGMA foreign_keys = ON")
         connection.executescript(SCHEMA)
+        _add_capture_column(connection)
         yield NoteIndex(connection)
     finally:
         connection.close()
@@ -194,11 +202,38 @@ def _clean_term(term: str) -> tuple[str, str]:
     return term, normalize(term)
 
 
-def _row_for(path: Path) -> tuple[str, str | None, str, str]:
+# Índices criados antes desta coluna a recebem aqui, já preenchida com a
+# reserva: a data de modificação registrada na indexação, convertida de UTC
+# para o horário local, como a reindexação faria.
+def _add_capture_column(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(notes)")}
+    if "captured_at" in columns:
+        return
+    connection.execute("ALTER TABLE notes ADD COLUMN captured_at TEXT")
+    rows = connection.execute("SELECT path, file_modified_at FROM notes").fetchall()
+    with connection:
+        connection.executemany(
+            "UPDATE notes SET captured_at = ? WHERE path = ?",
+            [(_local_time(modified_at).isoformat(), path) for path, modified_at in rows],
+        )
+
+
+def _local_time(utc_iso: str) -> datetime:
+    return datetime.fromisoformat(utc_iso).astimezone().replace(tzinfo=None)
+
+
+def _row_for(path: Path) -> tuple[str, str | None, str, str, str]:
     note = exif_store.read_note(path)
     modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
     indexed_at = datetime.now(tz=timezone.utc)
-    return (_key(path), note, modified_at.isoformat(), indexed_at.isoformat())
+    # DateTimeOriginal é a data de captura; a modificação do arquivo é só a
+    # reserva, porque muda a cada reescrita do EXIF.
+    captured_at = exif_store.read_capture_time(path) or datetime.fromtimestamp(path.stat().st_mtime)
+    return (_key(path), note, modified_at.isoformat(), indexed_at.isoformat(), captured_at.isoformat())
+
+
+def _parse_time(value: str | None) -> datetime | None:
+    return None if value is None else datetime.fromisoformat(value)
 
 
 def _key(path: Path) -> str:

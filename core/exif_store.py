@@ -1,9 +1,11 @@
+from datetime import datetime
 from pathlib import Path
 
 import piexif
 import piexif.helper
 
 JPEG_SUFFIXES = frozenset({".jpg", ".jpeg"})
+EXIF_DATETIME_FORMAT = "%Y:%m:%d %H:%M:%S"
 
 
 class ExifStoreError(Exception):
@@ -40,6 +42,19 @@ def read_note(image_path: str | Path) -> str | None:
     except ValueError:
         # Câmeras de terceiros gravam UserComment com codificação indefinida
         # (prefixo de 8 bytes nulos); uma anotação ilegível vale como ausente.
+        return None
+
+
+def read_capture_time(image_path: str | Path) -> datetime | None:
+    path = _jpeg_path(image_path)
+    raw = piexif.load(str(path))["Exif"].get(piexif.ExifIFD.DateTimeOriginal)
+    if raw is None:
+        return None
+    try:
+        return datetime.strptime(raw.decode("ascii"), EXIF_DATETIME_FORMAT)
+    except ValueError:
+        # Algumas câmeras gravam o campo preenchido com espaços ou zeros;
+        # uma data ilegível vale como ausente.
         return None
 
 

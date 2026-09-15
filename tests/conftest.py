@@ -14,6 +14,12 @@ MakeJpeg = Callable[..., Path]
 UNDEFINED_USER_COMMENT = b"\x00" * 8 + b"texto gravado por outra camera"
 
 
+def write_capture_time(path: Path, stamp: str) -> None:
+    exif = piexif.load(str(path))
+    exif["Exif"][piexif.ExifIFD.DateTimeOriginal] = stamp.encode("ascii")
+    piexif.insert(piexif.dump(exif), str(path))
+
+
 def write_raw_user_comment(path: Path, raw: bytes) -> None:
     exif = piexif.load(str(path))
     exif["Exif"][piexif.ExifIFD.UserComment] = raw

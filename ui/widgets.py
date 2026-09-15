@@ -1,11 +1,14 @@
 from kivy.lang import Builder
 from kivy.graphics.texture import Texture
+from kivy.input import MotionEvent
 from kivy.properties import BooleanProperty, ListProperty, NumericProperty, ObjectProperty, StringProperty
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.toast import toast
 from kivymd.uix.button import MDIconButton
+from kivymd.uix.card import MDCard
 from kivymd.uix.screen import MDScreen
 
 from ui import theme
@@ -47,6 +50,18 @@ Builder.load_string("""
 <Card>:
     md_bg_color: theme.LAYER_1
     radius: [dp(theme.CARD_RADIUS)]
+
+<Island>:
+    size_hint: None, None
+    size: dp(theme.ISLAND_WIDTH), dp(theme.ISLAND_HEIGHT)
+    radius: [self.height / 2]
+    md_bg_color: theme.ISLAND
+    elevation: theme.ISLAND_ELEVATION
+    padding: dp(theme.SPACING), 0
+
+<Slot@MDAnchorLayout>:
+    anchor_x: "center"
+    anchor_y: "center"
 
 <RowCard>:
     size_hint_y: None
@@ -158,8 +173,35 @@ class ScreenBar(MDBoxLayout):
         pass
 
 
+PROTOTYPE_NOTICE = "Elemento ilustrativo, fora do escopo deste protótipo."
+
+
+def notice() -> None:
+    toast(PROTOTYPE_NOTICE)
+
+
 class Card(MDBoxLayout):
     pass
+
+
+class Island(MDCard):
+    pass
+
+
+# Painéis flutuantes que aparecem e somem. Um widget desabilitado engole os
+# toques na sua área, então "escondido" é não interceptar nada; aberto, o
+# painel consome os toques dentro dos limites para não atravessarem até o
+# que está embaixo.
+class OverlayBehavior:
+    shown = BooleanProperty(False)
+
+    def on_touch_down(self, touch: MotionEvent) -> bool:
+        if not self.shown:
+            return False
+        if self.collide_point(*touch.pos):
+            super().on_touch_down(touch)
+            return True
+        return False
 
 
 class RowCard(Card):
@@ -198,10 +240,17 @@ class RoundedPhoto(Thumbnail):
 
     # O recorte segue o retângulo em que a imagem é desenhada: em "contain"
     # ela é menor que o widget; em "cover", maior, e o recorte para na borda.
+    # center_x/center_y são alias com cache e podem estar desatualizados
+    # dentro de um observador de pos; x, y, width e height não.
     def _update_frame(self, *_args: object) -> None:
         width = min(self.norm_image_size[0], self.width)
         height = min(self.norm_image_size[1], self.height)
-        self.frame = [self.center_x - width / 2, self.center_y - height / 2, width, height]
+        self.frame = [
+            self.x + (self.width - width) / 2,
+            self.y + (self.height - height) / 2,
+            width,
+            height,
+        ]
 
 
 class IconGlyph(Label):

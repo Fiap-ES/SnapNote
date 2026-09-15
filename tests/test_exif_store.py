@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import piexif
@@ -6,7 +7,12 @@ from PIL import Image
 
 from core import exif_store
 from core.exif_store import ImageNotFoundError, UnsupportedFormatError
-from tests.conftest import UNDEFINED_USER_COMMENT, MakeJpeg, write_raw_user_comment
+from tests.conftest import (
+    UNDEFINED_USER_COMMENT,
+    MakeJpeg,
+    write_capture_time,
+    write_raw_user_comment,
+)
 
 NOTE_WITH_ACCENTS = "Farmácia São João — remédio p/ pressão, ação às 9h, maçã"
 
@@ -104,3 +110,31 @@ def test_non_jpeg_raises_unsupported_format(tmp_path: Path) -> None:
 
     with pytest.raises(UnsupportedFormatError):
         exif_store.write_note(path, "nota")
+
+
+def test_read_capture_time_from_date_time_original(make_jpeg: MakeJpeg) -> None:
+    path = make_jpeg()
+    write_capture_time(path, "2026:09:13 10:15:30")
+
+    assert exif_store.read_capture_time(path) == datetime(2026, 9, 13, 10, 15, 30)
+
+
+def test_read_capture_time_is_none_without_the_field(make_jpeg: MakeJpeg) -> None:
+    assert exif_store.read_capture_time(make_jpeg()) is None
+
+
+def test_read_capture_time_is_none_for_unreadable_value(make_jpeg: MakeJpeg) -> None:
+    path = make_jpeg()
+    write_capture_time(path, "    :  :     :  :  ")
+
+    assert exif_store.read_capture_time(path) is None
+
+
+def test_write_note_preserves_capture_time(make_jpeg: MakeJpeg) -> None:
+    path = make_jpeg()
+    write_capture_time(path, "2026:09:13 10:15:30")
+
+    exif_store.write_note(path, "anotação nova")
+    exif_store.remove_note(path)
+
+    assert exif_store.read_capture_time(path) == datetime(2026, 9, 13, 10, 15, 30)

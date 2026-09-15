@@ -18,7 +18,7 @@ from kivy.uix.screenmanager import ScreenManager
 from kivymd.app import MDApp
 from kivymd.toast import toast
 
-import notes
+import library
 import storage
 from core.index import IndexedPhoto
 from permissions import PermissionStatus, request_app_permissions
@@ -26,7 +26,6 @@ from ui.camera_screen import CameraScreen
 from ui.detail_screen import DetailScreen
 from ui.gallery_screen import GalleryScreen
 from ui.keywords_screen import KeywordsScreen
-from ui.note_screen import NoteScreen
 from ui.thumbnail_loader import ThumbnailLoader
 
 BACK_KEY = 27
@@ -48,13 +47,12 @@ class SnapNoteApp(MDApp):
         previews = ThumbnailLoader(PREVIEW_SIZE)
         thumbnails = ThumbnailLoader(GRID_THUMBNAIL_SIZE)
         self.camera = CameraScreen(thumbnails, name="camera")
-        self.note = NoteScreen(previews, name="note")
         self.gallery = GalleryScreen(thumbnails, name="gallery")
         self.detail = DetailScreen(previews, name="detail")
         self.keywords = KeywordsScreen(name="keywords")
 
         self.camera.bind(
-            on_photo_captured=lambda _camera, file_path: self.annotate_capture(file_path),
+            on_photo_captured=lambda _camera, file_path: self.register_capture(file_path),
             on_gallery_requested=lambda _camera: self.show_gallery_root(),
         )
         self.gallery.bind(
@@ -64,13 +62,12 @@ class SnapNoteApp(MDApp):
         )
         self.keywords.bind(on_back=lambda _keywords: self.show_gallery())
         self.detail.bind(
-            on_edit_requested=lambda _detail, photo: self.edit_note(photo),
             on_deleted=lambda _detail: self.show_gallery(),
             on_back=lambda _detail: self.show_gallery(),
         )
 
         manager = ScreenManager()
-        for screen in (self.camera, self.note, self.gallery, self.detail, self.keywords):
+        for screen in (self.camera, self.gallery, self.detail, self.keywords):
             manager.add_widget(screen)
         return manager
 
@@ -85,7 +82,7 @@ class SnapNoteApp(MDApp):
         self.root.current = "gallery"
 
     def show_gallery_root(self) -> None:
-        self.gallery.group = None
+        self.gallery.reset()
         self.show_gallery()
 
     def show_keywords(self) -> None:
@@ -96,45 +93,25 @@ class SnapNoteApp(MDApp):
         self.detail.show(photo)
         self.root.current = "detail"
 
-    def annotate_capture(self, file_path: str) -> None:
-        self.camera.stop_camera()
+    def register_capture(self, file_path: str) -> None:
         photo = storage.publish(Path(file_path))
-        self.note.edit(
-            str(photo),
-            "",
-            cancel_label="Descartar",
-            on_saved=lambda _path, _note: self.show_camera(),
-            on_cancelled=self.discard_capture,
-        )
-        self.root.current = "note"
-
-    def discard_capture(self, file_path: str) -> None:
-        notes.discard_photo(Path(file_path))
-        self.show_camera()
-
-    def edit_note(self, photo: IndexedPhoto) -> None:
-        self.note.edit(
-            photo.path,
-            photo.note or "",
-            cancel_label="Cancelar",
-            on_saved=lambda path, note: self.show_detail(IndexedPhoto(path, note)),
-            on_cancelled=lambda _path: self.show_detail(photo),
-        )
-        self.root.current = "note"
+        library.index_photo(photo, storage.index_path())
+        self.camera.refresh_last_photo()
+        self.camera.show_capture(str(photo))
 
     # No Android o botão voltar chega à janela como a tecla ESC; devolver True
     # impede o comportamento padrão do Kivy, que é encerrar o app.
     def on_window_key(self, _window: object, key: int, *_args: object) -> bool:
+        if key != BACK_KEY:
+            return False
+        if self.root.current == "camera":
+            return self.camera.dismiss_overlay()
         back_actions = {
-            "note": self.note.cancel,
             "gallery": self.gallery.navigate_back,
             "detail": self.show_gallery,
             "keywords": self.show_gallery,
         }
-        action = back_actions.get(self.root.current)
-        if key != BACK_KEY or action is None:
-            return False
-        action()
+        back_actions[self.root.current]()
         return True
 
     def on_start(self) -> None:
