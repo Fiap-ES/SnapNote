@@ -4,7 +4,8 @@ from pathlib import Path
 from kivy.animation import Animation
 from kivy.input import MotionEvent
 from kivy.lang import Builder
-from kivy.properties import ObjectProperty
+from kivy.properties import BooleanProperty, ObjectProperty
+from kivymd.uix.floatlayout import MDFloatLayout
 
 import library
 import notes
@@ -12,7 +13,9 @@ import storage
 from core.index import IndexedPhoto
 from ui import dialogs, theme, widgets
 from ui.note_panel import NotePanel
+from ui.photo_pager import PhotoPager
 from ui.thumbnail_loader import ThumbnailLoader
+from ui.thumbnail_strip import ThumbnailStrip
 from ui.widgets import Card, OverlayBehavior, SnapScreen
 
 NO_NOTE_TEXT = "Sem anotação"
@@ -59,48 +62,55 @@ Builder.load_string("""
 
 <DetailScreen>:
     md_bg_color: theme.BAR
-    Thumbnail:
-        id: image
-        fit_mode: "contain"
-        color: theme.TEXT if self.texture else theme.TRANSPARENT
+    PhotoPager:
+        id: pager
         pos_hint: {"x": 0, "y": 0}
-    TopScrim:
-        size_hint_y: None
-        height: dp(theme.SCRIM_HEIGHT)
-        pos_hint: {"top": 1}
-    ToolIcon:
-        icon: "arrow-left"
-        pos_hint: {"x": 0, "top": 1}
-        on_release: root.dispatch("on_back")
-    Island:
-        id: island
-        pos_hint: {"center_x": .5}
-        y: dp(theme.PADDING)
-        Slot:
-            ToolIcon:
-                icon: "heart-outline"
-                on_release: root.notice()
-        Slot:
-            ToolIcon:
-                icon: "pencil-outline"
-                on_release: root.notice()
-        Slot:
-            ToolIcon:
-                icon: "information-outline"
-                on_release: root.toggle_info()
-        Slot:
-            ToolIcon:
-                icon: "share-variant-outline"
-                on_release: root.notice()
-        Slot:
-            ToolIcon:
-                icon: "delete-outline"
-                on_release: root.confirm_delete()
+        on_index: root.select(self.index)
+        on_tap: root.tap_photo()
+    ChromeLayer:
+        id: chrome
+        TopScrim:
+            size_hint_y: None
+            height: dp(theme.SCRIM_HEIGHT)
+            pos_hint: {"top": 1}
+        ToolIcon:
+            icon: "arrow-left"
+            pos_hint: {"x": 0, "top": 1}
+            on_release: root.dispatch("on_back")
+        Island:
+            id: island
+            pos_hint: {"center_x": .5}
+            y: dp(theme.PADDING)
+            Slot:
+                ToolIcon:
+                    icon: "heart-outline"
+                    on_release: root.notice()
+            Slot:
+                ToolIcon:
+                    icon: "pencil-outline"
+                    on_release: root.notice()
+            Slot:
+                ToolIcon:
+                    icon: "information-outline"
+                    on_release: root.toggle_info()
+            Slot:
+                ToolIcon:
+                    icon: "share-variant-outline"
+                    on_release: root.notice()
+            Slot:
+                ToolIcon:
+                    icon: "delete-outline"
+                    on_release: root.confirm_delete()
+        ThumbnailStrip:
+            id: strip
+            pos_hint: {"x": 0}
+            y: island.top + dp(theme.SPACING)
+            on_pick: pager.go_to(args[1])
     InfoCard:
         id: info
         width: root.width - 2 * dp(theme.PADDING)
         pos_hint: {"center_x": .5}
-        y: island.top + dp(theme.SPACING)
+        y: strip.top + dp(theme.SPACING)
         on_edit: root.edit_note()
     NotePanel:
         id: note_panel
@@ -118,19 +128,49 @@ class InfoCard(OverlayBehavior, Card):
         pass
 
 
+# Tudo o que se sobrepõe à foto e some com um toque nela: scrim, voltar, ilha
+# e tira. Invisível pela opacidade a camada ainda receberia os toques;
+# escondida, ela os deixa passar para a foto embaixo.
+class ChromeLayer(MDFloatLayout):
+    shown = BooleanProperty(True)
+
+    def reveal(self) -> None:
+        Animation.cancel_all(self)
+        self.shown = True
+        self.opacity = 1
+
+    def fade(self, shown: bool) -> None:
+        Animation.cancel_all(self)
+        self.shown = shown
+        Animation(opacity=float(shown), d=theme.ISLAND_DURATION, t="out_quad").start(self)
+
+    def on_touch_down(self, touch: MotionEvent) -> bool:
+        return self.shown and super().on_touch_down(touch)
+
+
 class DetailScreen(SnapScreen):
     __events__ = ("on_deleted", "on_back")
     photo = ObjectProperty(None)
 
-    def __init__(self, previews: ThumbnailLoader, **kwargs: object) -> None:
+    def __init__(self, previews: ThumbnailLoader, thumbnails: ThumbnailLoader, **kwargs: object) -> None:
         super().__init__(**kwargs)
-        self._previews = previews
+        self.ids.pager.loader = previews
+        self.ids.strip.loader = thumbnails
+        self._photos: list[IndexedPhoto] = []
 
-    def show(self, photo: IndexedPhoto) -> None:
-        self.photo = photo
+    def show(self, photos: list[IndexedPhoto], position: int) -> None:
+        self._photos = list(photos)
         self.hide_info()
         self.ids.note_panel.close()
-        self._previews.display(photo.path, self.ids.image)
+        self.ids.chrome.reveal()
+        paths = [photo.path for photo in photos]
+        self.ids.strip.show(paths, position)
+        self.ids.pager.show(paths, position)
+        self.photo = photos[position]
+
+    def select(self, position: int) -> None:
+        self.photo = self._photos[position]
+        self.ids.strip.focus(position)
 
     def on_photo(self, _screen: object, photo: IndexedPhoto) -> None:
         info = self.ids.info
@@ -139,6 +179,13 @@ class DetailScreen(SnapScreen):
         info.ids.file_label.text = Path(photo.path).name
         taken_at = photo.captured_at
         info.ids.date_label.text = "" if taken_at is None else taken_at.strftime(DATE_FORMAT)
+
+    def tap_photo(self) -> None:
+        chrome = self.ids.chrome
+        if self.ids.info.shown:
+            self.hide_info()
+        else:
+            chrome.fade(not chrome.shown)
 
     def toggle_info(self) -> None:
         if self.ids.info.shown:
@@ -164,22 +211,19 @@ class DetailScreen(SnapScreen):
     def save_note(self, text: str) -> None:
         note = notes.save_note(Path(self.photo.path), text, storage.index_path())
         self.photo = replace(self.photo, note=note)
+        self._photos[self.ids.pager.index] = self.photo
         self.close_note_panel()
 
     def close_note_panel(self) -> None:
         self.ids.note_panel.close()
         self.show_info()
 
-    # Tocar fora do painel de anotação só o fecha; fora do cartão de
-    # informações e da ilha, fecha o cartão e o toque segue ao destino.
+    # Tocar fora do painel de anotação só o fecha.
     def on_touch_down(self, touch: MotionEvent) -> bool:
-        note_panel, info, island = self.ids.note_panel, self.ids.info, self.ids.island
-        if note_panel.shown:
-            if not note_panel.collide_point(*touch.pos):
-                self.close_note_panel()
-                return True
-        elif info.shown and not info.collide_point(*touch.pos) and not island.collide_point(*touch.pos):
-            self.hide_info()
+        note_panel = self.ids.note_panel
+        if note_panel.shown and not note_panel.collide_point(*touch.pos):
+            self.close_note_panel()
+            return True
         return super().on_touch_down(touch)
 
     def notice(self) -> None:

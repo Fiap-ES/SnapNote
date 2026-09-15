@@ -240,12 +240,14 @@ class GalleryScreen(SnapScreen):
     def __init__(self, thumbnails: ThumbnailLoader, **kwargs: object) -> None:
         super().__init__(**kwargs)
         self._thumbnails = thumbnails
+        self._photos: list[IndexedPhoto] = []
 
     def refresh(self) -> None:
         term = self.ids.search_field.text
         index_path = storage.index_path()
         self.title = self._title()
         self.ids.content.clear_widgets()
+        self._photos = []
         if term:
             keyword_id = self.group.id if self.group else None
             self._show_grid(library.find_photos(index_path, term, keyword_id), "Nenhuma anotação contém o texto buscado.")
@@ -300,7 +302,7 @@ class GalleryScreen(SnapScreen):
             target=self._rebuild_in_background, args=(progress,), daemon=True
         ).start()
 
-    def on_photo_selected(self, photo: IndexedPhoto) -> None:
+    def on_photo_selected(self, photos: list[IndexedPhoto], position: int) -> None:
         pass
 
     def on_keywords_requested(self) -> None:
@@ -362,6 +364,7 @@ class GalleryScreen(SnapScreen):
             cell = PhotoCell(photo=photo, on_release=self._select)
             grid.add_widget(cell)
             self._thumbnails.display(photo.path, cell)
+        self._photos.extend(photos)
         return grid
 
     def _open_album(self, card: AlbumCard) -> None:
@@ -370,8 +373,9 @@ class GalleryScreen(SnapScreen):
         else:
             self.open_folder(card.target)
 
+    # O detalhe percorre o mesmo conjunto que a grade mostra, na mesma ordem.
     def _select(self, cell: PhotoCell) -> None:
-        self.dispatch("on_photo_selected", cell.photo)
+        self.dispatch("on_photo_selected", self._photos, self._photos.index(cell.photo))
 
     def _rebuild_in_background(self, progress: MDDialog) -> None:
         try:

@@ -31,6 +31,9 @@ from ui.thumbnail_loader import ThumbnailLoader
 BACK_KEY = 27
 GRID_THUMBNAIL_SIZE = 320
 PREVIEW_SIZE = 1024
+# A foto atual, as duas vizinhas e alguma folga para voltar: o suficiente
+# para deslizar sem acumular imagens grandes.
+PREVIEW_CACHE = 8
 
 
 class SnapNoteApp(MDApp):
@@ -44,11 +47,11 @@ class SnapNoteApp(MDApp):
         Window.softinput_mode = "below_target"
         Window.bind(on_keyboard=self.on_window_key)
 
-        previews = ThumbnailLoader(PREVIEW_SIZE)
+        previews = ThumbnailLoader(PREVIEW_SIZE, max_cached=PREVIEW_CACHE)
         thumbnails = ThumbnailLoader(GRID_THUMBNAIL_SIZE)
         self.camera = CameraScreen(thumbnails, name="camera")
         self.gallery = GalleryScreen(thumbnails, name="gallery")
-        self.detail = DetailScreen(previews, name="detail")
+        self.detail = DetailScreen(previews, thumbnails, name="detail")
         self.keywords = KeywordsScreen(name="keywords")
 
         self.camera.bind(
@@ -56,7 +59,7 @@ class SnapNoteApp(MDApp):
             on_gallery_requested=lambda _camera: self.show_gallery_root(),
         )
         self.gallery.bind(
-            on_photo_selected=lambda _gallery, photo: self.show_detail(photo),
+            on_photo_selected=lambda _gallery, photos, position: self.show_detail(photos, position),
             on_keywords_requested=lambda _gallery: self.show_keywords(),
             on_back=lambda _gallery: self.show_camera(),
         )
@@ -89,8 +92,8 @@ class SnapNoteApp(MDApp):
         self.keywords.refresh()
         self.root.current = "keywords"
 
-    def show_detail(self, photo: IndexedPhoto) -> None:
-        self.detail.show(photo)
+    def show_detail(self, photos: list[IndexedPhoto], position: int) -> None:
+        self.detail.show(photos, position)
         self.root.current = "detail"
 
     def register_capture(self, file_path: str) -> None:
