@@ -21,6 +21,10 @@ android.accept_sdk_license = True
 # Adiciona as dependências Gradle do CameraX e o código Java do provedor.
 p4a.hook = camerax_provider/gradle_options.py
 
+# Reconhecimento de texto do ML Kit com modelo embarcado (sem rede). O hook
+# acima preserva estas dependências e acrescenta só as do CameraX.
+android.gradle_dependencies = com.google.mlkit:text-recognition:16.0.0
+
 # Visibilidade do serviço de reconhecimento de voz, exigida a partir do
 # Android 11 para o SpeechRecognizer encontrar o reconhecedor do sistema.
 android.extra_manifest_xml = manifest/speech_queries.xml

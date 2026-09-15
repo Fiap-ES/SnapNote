@@ -15,6 +15,7 @@ from kivymd.toast import toast
 
 import library
 import notes
+import ocr
 import storage
 from library import CAPTURE_NAME_FORMAT, find_photos
 from permissions import camera_permission_granted, photo_saving_allowed
@@ -264,6 +265,8 @@ Builder.load_string("""
 # vincular a câmera, e a conexão é refeita a cada volta para esta tela.
 MINIMUM_ZOOM = 0
 
+SUGGESTION_CAPTION = "Sugestão lida da imagem. Revise ou apague antes de salvar."
+
 
 def timestamp_name() -> str:
     return datetime.now().strftime(CAPTURE_NAME_FORMAT)
@@ -299,6 +302,7 @@ class CameraScreen(SnapScreen):
     def __init__(self, thumbnails: ThumbnailLoader, **kwargs: object) -> None:
         super().__init__(**kwargs)
         self._thumbnails = thumbnails
+        self._suggestion = ""
 
     def on_camera_permission(self, granted: bool) -> None:
         if granted:
@@ -348,6 +352,8 @@ class CameraScreen(SnapScreen):
         panel = self.ids.capture_panel
         panel.photo_path = file_path
         self._thumbnails.display(file_path, panel.ids.thumbnail)
+        self._suggestion = ""
+        ocr.recognize_text(Path(file_path), lambda text: self._suggest(file_path, text))
         resting = self.ids.zoom_row.top + dp(theme.SPACING)
         panel.y = resting - dp(theme.ISLAND_SLIDE)
         panel.shown = True
@@ -368,7 +374,17 @@ class CameraScreen(SnapScreen):
         self.refresh_last_photo()
 
     def open_note_panel(self) -> None:
-        self.ids.note_panel.open("")
+        self.ids.note_panel.open(self._suggestion, SUGGESTION_CAPTION if self._suggestion else "")
+
+    # O reconhecimento responde em outra thread e pode terminar depois de o
+    # painel já estar aberto ou de outra foto ter sido capturada.
+    @mainthread
+    def _suggest(self, file_path: str, text: str) -> None:
+        if self.ids.capture_panel.photo_path != file_path or not text:
+            return
+        self._suggestion = text
+        if self.ids.note_panel.shown:
+            self.ids.note_panel.suggest(text, SUGGESTION_CAPTION)
 
     def hide_note_panel(self) -> None:
         self.ids.note_panel.close()

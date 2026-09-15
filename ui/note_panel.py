@@ -1,6 +1,7 @@
 from kivy.animation import Animation
 from kivy.lang import Builder
 from kivy.metrics import dp
+from kivy.properties import StringProperty
 from kivymd.uix.card import MDCard
 
 from ui import theme
@@ -29,6 +30,15 @@ Builder.load_string("""
         MDRoundFlatButton:
             text: "Salvar"
             on_release: root.dispatch("on_save", editor.text)
+    MDLabel:
+        text: root.caption
+        font_name: theme.FONT
+        font_size: sp(theme.FONT_SMALL)
+        theme_text_color: "Custom"
+        text_color: theme.ACCENT
+        text_size: self.width, None
+        size_hint_y: None
+        height: self.texture_size[1] if self.text else 0
     NoteEditor:
         id: editor
         size_hint_y: None
@@ -41,15 +51,22 @@ Builder.load_string("""
 # acima dele permanece visível.
 class NotePanel(OverlayBehavior, MDCard):
     __events__ = ("on_save", "on_cancel")
+    caption = StringProperty("")
 
-    def open(self, text: str) -> None:
+    def open(self, text: str, caption: str = "") -> None:
         editor = self.ids.editor
         editor.text = text
+        self.caption = caption
         self.y = dp(theme.PADDING) - dp(theme.ISLAND_SLIDE)
         self.shown = True
         slide = Animation(y=dp(theme.PADDING), opacity=1, d=theme.ISLAND_DURATION, t="out_quad")
         slide.bind(on_complete=lambda *_args: editor.focus())
         slide.start(self)
+
+    def suggest(self, text: str, caption: str) -> None:
+        if not self.ids.editor.text:
+            self.ids.editor.text = text
+            self.caption = caption
 
     def close(self) -> None:
         Animation.cancel_all(self)
