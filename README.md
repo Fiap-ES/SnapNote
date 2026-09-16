@@ -20,7 +20,7 @@ pip install kivy==2.3.1 kivymd==1.2.0 camera4kivy==0.3.3 gestures4kivy==0.1.4
 python main.py
 ```
 
-Os dados ficam no diretório de dados do usuário do Kivy; no Linux, `~/.config/snapnote/`, com as fotos em `DCIM/SnapNote/`. Para ver a galeria com conteúdo, copie arquivos JPEG para essa pasta e toque em reconstruir índice na tela de galeria.
+Os dados ficam no diretório de dados do usuário do Kivy; no Linux, `~/.config/snapnote/`, com as fotos em `DCIM/SnapNote/`. Na primeira abertura, no computador ou no celular, o aplicativo copia para essa pasta as fotos de demonstração de `assets/demo/`, já anotadas, datadas e classificadas; as anotações e datas ficam em `demo.py`. A carga acontece uma única vez (o arquivo `demo_loaded` no diretório de dados a registra), então fotos excluídas não voltam. Para ver outras fotos na galeria, copie arquivos JPEG para a pasta e toque em reconstruir índice na tela de galeria.
 
 ## Como usar no celular
 

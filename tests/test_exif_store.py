@@ -119,6 +119,15 @@ def test_read_capture_time_from_date_time_original(make_jpeg: MakeJpeg) -> None:
     assert exif_store.read_capture_time(path) == datetime(2026, 9, 13, 10, 15, 30)
 
 
+def test_write_capture_time_is_read_back_and_keeps_the_note(make_jpeg: MakeJpeg) -> None:
+    path = make_jpeg(note="anotação")
+
+    exif_store.write_capture_time(path, datetime(2026, 8, 2, 9, 5, 0))
+
+    assert exif_store.read_capture_time(path) == datetime(2026, 8, 2, 9, 5, 0)
+    assert exif_store.read_note(path) == "anotação"
+
+
 def test_read_capture_time_is_none_without_the_field(make_jpeg: MakeJpeg) -> None:
     assert exif_store.read_capture_time(make_jpeg()) is None
 

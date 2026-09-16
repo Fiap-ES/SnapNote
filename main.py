@@ -1,4 +1,5 @@
 from pathlib import Path
+from threading import Thread
 
 from kivy.config import Config
 from kivy.utils import platform
@@ -12,16 +13,18 @@ if platform != "android":
     Config.set("graphics", "height", str(theme.WINDOW_HEIGHT))
     Config.set("graphics", "resizable", "0")
 
-from kivy.clock import Clock
+from kivy.clock import Clock, mainthread
 from kivy.core.window import Window
+from kivy.logger import Logger
 from kivy.uix.screenmanager import ScreenManager
 from kivymd.app import MDApp
 from kivymd.toast import toast
 
+import demo
 import library
 import storage
 from core.index import IndexedPhoto
-from permissions import PermissionStatus, request_app_permissions
+from permissions import PermissionStatus, photo_saving_allowed, request_app_permissions
 from ui.camera_screen import CameraScreen
 from ui.detail_screen import DetailScreen
 from ui.gallery_screen import GalleryScreen
@@ -127,6 +130,33 @@ class SnapNoteApp(MDApp):
         self.camera.on_camera_permission(status.camera)
         if not status.storage:
             toast("Sem acesso às fotos do aparelho, a galeria e a reconstrução do índice ficam limitadas às fotos deste app.")
+        self.load_demo()
+
+    def load_demo(self) -> None:
+        # Copiar e reescrever as fotos fora da thread do Kivy: a câmera abre
+        # sem esperar pela carga. Sem permissão de gravação a carga fica para
+        # uma abertura em que ela exista.
+        if not photo_saving_allowed():
+            return
+        paths = (storage.DEMO_ASSETS, storage.photos_dir(), storage.index_path(), storage.demo_marker_path())
+        Thread(target=self._load_demo_in_background, args=paths, daemon=True).start()
+
+    def _load_demo_in_background(
+        self, assets_dir: Path, photos_dir: Path, index_path: Path, marker_path: Path
+    ) -> None:
+        try:
+            loaded = demo.load_demo(assets_dir, photos_dir, index_path, marker_path)
+        except Exception:
+            Logger.exception("SnapNote: carga de demonstração interrompida")
+            return
+        if loaded:
+            self._show_demo()
+
+    @mainthread
+    def _show_demo(self) -> None:
+        self.camera.refresh_last_photo()
+        if self.root.current == "gallery":
+            self.gallery.refresh()
 
     def on_pause(self) -> bool:
         self.camera.stop_camera()

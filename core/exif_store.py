@@ -45,6 +45,13 @@ def read_note(image_path: str | Path) -> str | None:
         return None
 
 
+def write_capture_time(image_path: str | Path, taken_at: datetime) -> None:
+    path = _jpeg_path(image_path)
+    exif = piexif.load(str(path))
+    exif["Exif"][piexif.ExifIFD.DateTimeOriginal] = taken_at.strftime(EXIF_DATETIME_FORMAT).encode("ascii")
+    piexif.insert(piexif.dump(exif), str(path))
+
+
 def read_capture_time(image_path: str | Path) -> datetime | None:
     path = _jpeg_path(image_path)
     raw = piexif.load(str(path))["Exif"].get(piexif.ExifIFD.DateTimeOriginal)

@@ -11,7 +11,9 @@ if platform == "android":
 
 CAPTURE_SUBDIR = "captures"
 INDEX_FILENAME = "snapnote.db"
+DEMO_MARKER_FILENAME = "demo_loaded"
 PUBLIC_ALBUM = Path("DCIM") / "SnapNote"
+DEMO_ASSETS = Path(__file__).resolve().parent / "assets" / "demo"
 
 
 def app_dir() -> Path:
@@ -38,6 +40,10 @@ def photos_dir() -> Path:
 
 def index_path() -> Path:
     return app_dir() / INDEX_FILENAME
+
+
+def demo_marker_path() -> Path:
+    return app_dir() / DEMO_MARKER_FILENAME
 
 
 def publish(capture: Path) -> Path:
