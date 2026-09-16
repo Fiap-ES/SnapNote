@@ -1,3 +1,4 @@
+from kivy.animation import Animation
 from kivy.lang import Builder
 from kivy.graphics.texture import Texture
 from kivy.input import MotionEvent
@@ -147,6 +148,12 @@ Builder.load_string("""
 <ShutterButton>:
     size_hint: None, None
     size: dp(theme.SHUTTER_SIZE), dp(theme.SHUTTER_SIZE)
+    canvas.before:
+        PushMatrix
+        Scale:
+            x: self.scale
+            y: self.scale
+            origin: self.center
     canvas:
         Color:
             rgba: theme.TEXT
@@ -158,6 +165,8 @@ Builder.load_string("""
         Line:
             circle: self.center_x, self.center_y, self.width / 2 - dp(theme.SHUTTER_OUTER_RING + theme.SHUTTER_GAP) - dp(theme.SHUTTER_INNER_RING) / 2
             width: dp(theme.SHUTTER_INNER_RING)
+    canvas.after:
+        PopMatrix
 """)
 
 
@@ -278,4 +287,11 @@ class ToolIcon(MDIconButton):
 
 
 class ShutterButton(ButtonBehavior, Widget):
-    pass
+    scale = NumericProperty(1)
+
+    # Encolhe ao tocar e volta ao soltar, também quando o dedo sai do botão
+    # antes de soltar e não há on_release.
+    def on_state(self, _button: object, state: str) -> None:
+        Animation.cancel_all(self, "scale")
+        scale = theme.SHUTTER_PRESSED_SCALE if state == "down" else 1
+        Animation(scale=scale, d=theme.SHUTTER_PRESS_DURATION, t="out_quad").start(self)

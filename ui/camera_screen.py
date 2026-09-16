@@ -10,6 +10,7 @@ from kivy.logger import Logger
 from kivy.metrics import dp
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.uix.label import Label
+from kivy.uix.widget import Widget
 from kivy.uix.behaviors import ButtonBehavior
 from kivymd.toast import toast
 
@@ -111,6 +112,15 @@ Builder.load_string("""
         pos_hint: {"center_y": .5}
         on_release: root.dispatch("on_annotate")
 
+<ShutterFlash>:
+    opacity: 0
+    canvas:
+        Color:
+            rgba: theme.SHUTTER_FLASH
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
 <LastPhotoButton>:
     fit_mode: "cover"
     color: theme.TEXT if self.texture else theme.TRANSPARENT
@@ -176,6 +186,9 @@ Builder.load_string("""
                     id: preview
                     aspect_ratio: "16:9"
                     letterbox_color: theme.BAR
+            ShutterFlash:
+                id: flash
+                pos_hint: {"x": 0, "y": 0}
             FloatingIcon:
                 icon: "auto-fix"
                 right: preview_area.right - dp(theme.PADDING)
@@ -294,6 +307,13 @@ class FloatingIcon(ButtonBehavior, Label):
     icon = StringProperty("")
 
 
+class ShutterFlash(Widget):
+    def blink(self) -> None:
+        Animation.cancel_all(self, "opacity")
+        self.opacity = 1
+        Animation(opacity=0, d=theme.SHUTTER_FLASH_DURATION, t="out_quad").start(self)
+
+
 class CameraScreen(SnapScreen):
     __events__ = ("on_photo_captured", "on_gallery_requested")
     top_label = StringProperty("ZEISS")
@@ -342,6 +362,9 @@ class CameraScreen(SnapScreen):
         if not photo_saving_allowed():
             toast("Sem permissão de armazenamento, a foto não pode ser salva.")
             return
+        # A resposta visual sai no mesmo instante do toque; a captura segue
+        # sem esperar por ela.
+        self.ids.flash.blink()
         self.ids.preview.capture_photo(
             location=storage.capture_location(),
             subdir=storage.CAPTURE_SUBDIR,
