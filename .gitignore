@@ -225,3 +225,12 @@ bin/
 .buildozer/
 bin/
 *.apk
+
+.env
+secrets.json
+
+.env
+secrets.json
+
+.env
+secrets.json
