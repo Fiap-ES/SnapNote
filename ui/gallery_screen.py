@@ -17,6 +17,7 @@ from core.index import IndexedPhoto, Keyword
 from core.taxonomy import TaxonomyPath
 from ui import dialogs
 from ui.dates import section_label
+from ui.dictation import DictationBehavior
 from ui.thumbnail_loader import ThumbnailLoader
 from ui.widgets import Card, RoundedPhoto, SnapScreen
 
@@ -140,6 +141,10 @@ Builder.load_string("""
                 icon: "database-refresh-outline"
                 pos_hint: {"center_y": .5}
                 on_release: root.confirm_rebuild()
+            ToolIcon:
+                icon: "cog-outline"
+                pos_hint: {"center_y": .5}
+                on_release: root.dispatch("on_settings_requested")
         MDBoxLayout:
             adaptive_height: True
             padding: dp(theme.PADDING), dp(theme.SPACING)
@@ -152,7 +157,7 @@ Builder.load_string("""
                     color: theme.TEXT_MUTED
                 TextInput:
                     id: search_field
-                    hint_text: "Buscar na anotação"
+                    hint_text: "Ouvindo..." if root.listening else "Buscar na anotação"
                     multiline: False
                     write_tab: False
                     background_normal: ""
@@ -165,6 +170,14 @@ Builder.load_string("""
                     font_size: sp(theme.FONT_BODY)
                     padding: 0, (self.height - self.line_height) / 2
                     on_text: root.refresh()
+                ToolIcon:
+                    icon: "microphone"
+                    pos_hint: {"center_y": .5}
+                    size_hint: None, None
+                    size: dp(theme.SEARCH_MIC_SIZE), dp(theme.SEARCH_MIC_SIZE)
+                    icon_color: theme.ON_ACCENT if root.listening else theme.TEXT_MUTED
+                    md_bg_color: theme.ACCENT if root.listening else theme.TRANSPARENT
+                    on_release: root.dictate()
         MDLabel:
             text: root.message
             font_name: theme.FONT
@@ -229,8 +242,8 @@ KEYWORD_ICON = "tag-outline"
 TAXONOMY_ICON = "file-tree-outline"
 
 
-class GalleryScreen(SnapScreen):
-    __events__ = ("on_photo_selected", "on_keywords_requested", "on_back")
+class GalleryScreen(DictationBehavior, SnapScreen):
+    __events__ = ("on_photo_selected", "on_keywords_requested", "on_settings_requested", "on_back")
     message = StringProperty("")
     title = StringProperty("Galeria")
     group = ObjectProperty(None, allownone=True)
@@ -273,6 +286,14 @@ class GalleryScreen(SnapScreen):
         self.folder = None
         self.view = "photos"
 
+    # O texto ditado substitui o da busca sem confirmação e o on_text do
+    # campo já refaz a listagem.
+    def apply_transcript(self, text: str) -> None:
+        self.ids.search_field.text = text
+
+    def on_pre_leave(self) -> None:
+        self.stop_dictation()
+
     def open_group(self, keyword: Keyword | None) -> None:
         self.group = keyword
         self.refresh()
@@ -306,6 +327,9 @@ class GalleryScreen(SnapScreen):
         pass
 
     def on_keywords_requested(self) -> None:
+        pass
+
+    def on_settings_requested(self) -> None:
         pass
 
     def on_back(self) -> None:

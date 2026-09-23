@@ -64,9 +64,11 @@ class NotePanel(OverlayBehavior, MDCard):
         slide.start(self)
 
     def suggest(self, text: str, caption: str) -> None:
-        if not self.ids.editor.text:
+        if text and not self.ids.editor.text:
             self.ids.editor.text = text
             self.caption = caption
+        else:
+            self.caption = ""
 
     def close(self) -> None:
         Animation.cancel_all(self)

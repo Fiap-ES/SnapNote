@@ -1,13 +1,9 @@
-from kivy.clock import mainthread
 from kivy.lang import Builder
-from kivy.properties import BooleanProperty, StringProperty
-from kivymd.toast import toast
+from kivy.properties import StringProperty
 from kivymd.uix.boxlayout import MDBoxLayout
 
-import speech
-from permissions import request_microphone_permission
-from speech import SpeechFailure
 from ui import dialogs
+from ui.dictation import DictationBehavior
 
 Builder.load_string("""
 #:import theme ui.theme
@@ -38,21 +34,9 @@ Builder.load_string("""
         on_release: root.dictate()
 """)
 
-FAILURE_MESSAGES = {
-    SpeechFailure.UNAVAILABLE: "Reconhecimento de voz indisponível neste aparelho.",
-    SpeechFailure.NO_SPEECH: "Nenhuma fala detectada.",
-    SpeechFailure.PERMISSION_DENIED: "Permissão de microfone negada.",
-    SpeechFailure.RECOGNIZER_ERROR: "Falha no reconhecimento de voz.",
-}
 
-
-class NoteEditor(MDBoxLayout):
+class NoteEditor(DictationBehavior, MDBoxLayout):
     text = StringProperty("")
-    listening = BooleanProperty(False)
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(**kwargs)
-        self._dictation = speech.Dictation(self._on_transcript, self._on_dictation_failure)
 
     def focus(self) -> None:
         self.ids.note_field.focus = True
@@ -60,38 +44,14 @@ class NoteEditor(MDBoxLayout):
     def blur(self) -> None:
         self.ids.note_field.focus = False
 
+    # Uma anotação escrita não se perde sem confirmação; a busca, sim.
     def dictate(self) -> None:
-        if self.listening:
-            self.stop_dictation()
-        elif self.text.strip():
+        if not self.listening and self.text.strip():
             dialogs.confirm(
-                "Substituir a anotação atual pelo ditado?", "Substituir", self._request_dictation
+                "Substituir a anotação atual pelo ditado?", "Substituir", self.start_dictation
             )
-        else:
-            self._request_dictation()
-
-    def stop_dictation(self) -> None:
-        self.listening = False
-        self._dictation.cancel()
-
-    def _request_dictation(self) -> None:
-        request_microphone_permission(self._start_dictation)
-
-    def _start_dictation(self, granted: bool) -> None:
-        if not granted:
-            toast(FAILURE_MESSAGES[SpeechFailure.PERMISSION_DENIED])
             return
-        self.listening = True
-        self._dictation.start()
+        super().dictate()
 
-    # O SpeechRecognizer responde na thread principal do Android; widgets só
-    # podem ser alterados na thread do Kivy.
-    @mainthread
-    def _on_transcript(self, text: str) -> None:
-        self.listening = False
+    def apply_transcript(self, text: str) -> None:
         self.text = text
-
-    @mainthread
-    def _on_dictation_failure(self, failure: SpeechFailure) -> None:
-        self.listening = False
-        toast(FAILURE_MESSAGES[failure])

@@ -22,18 +22,40 @@ python main.py
 
 Os dados ficam no diretório de dados do usuário do Kivy; no Linux, `~/.config/snapnote/`, com as fotos em `DCIM/SnapNote/`. Na primeira abertura, no computador ou no celular, o aplicativo copia para essa pasta as fotos de demonstração de `assets/demo/`, já anotadas, datadas e classificadas; as anotações e datas ficam em `demo.py`. A carga acontece uma única vez (o arquivo `demo_loaded` no diretório de dados a registra), então fotos excluídas não voltam. Para ver outras fotos na galeria, copie arquivos JPEG para a pasta e toque em reconstruir índice na tela de galeria.
 
+## Chave do Gemini
+
+Ao capturar uma foto, o aplicativo pede ao Google Gemini uma descrição curta da imagem e a oferece como sugestão de anotação. Só uma cópia reduzida da foto é enviada (no máximo `MAX_IMAGE_SIDE` pixels no lado maior, em `vision.py`), montada em memória; o arquivo no aparelho continua em resolução total. A chave da API não fica no código nem no repositório: ela é lida de um arquivo local, na raiz do projeto (a mesma pasta de `main.py`), em um dos dois formatos abaixo. Os dois arquivos estão no `.gitignore`.
+
+`.env`:
+
+```
+GEMINI_API_KEY=sua-chave-aqui
+```
+
+`secrets.json`:
+
+```json
+{ "GEMINI_API_KEY": "sua-chave-aqui" }
+```
+
+No computador, qualquer um dos dois serve. **No celular, use `secrets.json`**: o Buildozer só empacota as extensões listadas em `source.include_exts`, e `.env` fica de fora do APK. A chave viaja dentro do APK, então trate o arquivo gerado como privado.
+
+Sem o arquivo, sem internet, ou se a chamada falhar ou demorar mais que o tempo limite (15 segundos, ajustável na tela de configurações), o aplicativo segue normalmente: a sugestão passa a ser o texto lido na própria imagem pelo reconhecimento local do ML Kit, que funciona offline. Nada é gravado na foto sem você salvar.
+
 ## Como usar no celular
 
 O aplicativo abre na câmera. Na primeira vez, ele pede permissão para usar a câmera e para acessar as fotos do aparelho.
 
 **Tirar uma foto.** Toque no botão redondo no centro da barra inferior. A foto é salva na hora, sem anotação, e um painel flutuante aparece sobre o preview com a miniatura da foto e uma linha de ícones. Nele, o ícone dourado do cérebro, à direita, abre um painel de anotação sobre a própria câmera, e a lixeira apaga a foto recém-tirada, após confirmação. Tocar fora do painel o fecha; a foto continua salva. O ícone de raio na barra superior liga e desliga o flash; o ícone de setas circulares, à direita do obturador, troca entre a câmera traseira e a frontal. A tela de câmera é um protótipo de interface: os demais ícones da barra superior e do painel (compartilhar e editar), os controles de zoom, os modos (Noite, Retrato, Vídeo e outros) e o ícone sobre o preview são apenas decorativos e mostram um aviso ao serem tocados.
 
-**Escrever ou ditar a anotação.** O painel de anotação, o mesmo na câmera e na edição pela galeria, tem um campo de texto. Logo após a captura, o texto lido na própria foto já vem preenchido como sugestão, indicada acima do campo; revise, complete ou apague antes de salvar. Escreva a anotação ou toque no microfone e fale; na primeira vez o aplicativo pede permissão para usar o microfone. O texto reconhecido substitui o conteúdo do campo. Se já houver texto, o aplicativo pergunta antes de substituir. Toque em Salvar para gravar a anotação na foto ou em Cancelar para voltar sem alterar nada. Salvar com o campo vazio deixa a foto sem anotação.
+**Escrever ou ditar a anotação.** O painel de anotação, o mesmo na câmera e na edição pela galeria, tem um campo de texto. Logo após a captura, uma sugestão já vem preenchida, indicada acima do campo: com internet, uma descrição curta da foto feita pelo Gemini; sem internet, o texto lido na própria imagem pelo reconhecimento local. Revise, complete ou apague antes de salvar. Escreva a anotação ou toque no microfone e fale; na primeira vez o aplicativo pede permissão para usar o microfone. O texto reconhecido substitui o conteúdo do campo. Se já houver texto, o aplicativo pergunta antes de substituir. Toque em Salvar para gravar a anotação na foto ou em Cancelar para voltar sem alterar nada. Salvar com o campo vazio deixa a foto sem anotação.
 
-**Buscar por texto.** A miniatura no canto inferior esquerdo da câmera abre a galeria. Digite no campo de busca no topo: a lista é filtrada enquanto você escreve, sem diferenciar maiúsculas de minúsculas nem acentos. Buscar `farmacia` encontra `Farmácia`.
+**Buscar por texto.** A miniatura no canto inferior esquerdo da câmera abre a galeria. Digite no campo de busca no topo: a lista é filtrada enquanto você escreve, sem diferenciar maiúsculas de minúsculas nem acentos. Buscar `farmacia` encontra `Farmácia`. O microfone à direita do campo busca por voz: toque, fale, e o texto reconhecido entra no campo e filtra a lista na hora, substituindo o que estiver escrito — busca é descartável, então não há confirmação. Enquanto o aplicativo escuta, o microfone fica dourado e o campo mostra "Ouvindo..."; toque nele de novo, ou saia da galeria, para cancelar.
 
 **Cadastrar palavras-chave e ver as fotos agrupadas.** Na galeria, toque no ícone de etiquetas na barra superior. Use o botão de mais para cadastrar um termo, toque em um termo para editá-lo ou na lixeira para removê-lo. Toda foto cuja anotação contém a palavra inteira entra no grupo daquele termo: `recibo` agrupa "recibo da farmácia", mas não "recibos". De volta à galeria, cada grupo com fotos aparece como uma pasta acima da grade; toque nela para ver só as fotos daquele grupo e use a seta para voltar. As pastas são apenas uma forma de ver as fotos: nada é copiado nem movido no aparelho.
 
 **Visualizar uma foto com sua anotação.** Toque em uma miniatura para abrir a foto em tela cheia. Deslize para o lado para passar às fotos vizinhas, percorrendo o mesmo conjunto que a galeria mostrava: o grupo aberto ou o resultado da busca. A tira de miniaturas acima da barra flutuante acompanha a navegação, com a foto atual destacada em dourado; toque em uma miniatura para saltar até ela. Um toque na foto esconde a barra, a tira e o botão de voltar, para ver a imagem sem nada por cima; outro toque os traz de volta. Na barra flutuante inferior, o ícone de informação mostra a anotação, o nome do arquivo e a data da captura; tocar de novo, ou na foto, o oculta. O lápis dentro desse cartão abre o painel de anotação para edição, e a lixeira da barra exclui a foto, com confirmação. Favoritar, editar e compartilhar na barra são decorativos.
+
+**Ajustar o tempo limite da descrição.** O ícone de engrenagem na barra da galeria abre as configurações. O campo de tempo limite define quantos segundos o aplicativo espera pela descrição do Gemini antes de desistir e usar o texto lido na própria imagem; aceita de 5 a 60 segundos e vale a partir da próxima foto. Em rede lenta, aumente o valor. A configuração fica guardada no aparelho, ao lado do índice, e sobrevive ao fechamento do aplicativo.
 
 Se as fotos e a galeria ficarem fora de sincronia, por exemplo depois de reinstalar o aplicativo, toque no ícone de reconstruir índice na barra da galeria: ele relê todas as fotos da pasta `DCIM/SnapNote` e refaz os grupos.

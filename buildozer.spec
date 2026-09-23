@@ -8,11 +8,15 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 source.exclude_dirs = tests, bin
 
-requirements = python3,kivy,camera4kivy,gestures4kivy,pillow,piexif,kivymd==1.2.0
+# openssl e certifi atendem à chamada HTTPS ao Gemini: o pacote de
+# certificados do certifi supre o que o Android não expõe ao OpenSSL.
+requirements = python3,kivy,camera4kivy,gestures4kivy,pillow,piexif,kivymd==1.2.0,openssl,certifi
 orientation = portrait
 fullscreen = 0
 
-android.permissions = CAMERA, (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=28), (name=android.permission.READ_EXTERNAL_STORAGE;maxSdkVersion=32), android.permission.READ_MEDIA_IMAGES, android.permission.READ_MEDIA_VISUAL_USER_SELECTED, android.permission.RECORD_AUDIO
+# A descrição da foto pelo Gemini exige INTERNET; ACCESS_NETWORK_STATE
+# permite saber se há rede antes de tentar o envio.
+android.permissions = CAMERA, (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=28), (name=android.permission.READ_EXTERNAL_STORAGE;maxSdkVersion=32), android.permission.READ_MEDIA_IMAGES, android.permission.READ_MEDIA_VISUAL_USER_SELECTED, android.permission.RECORD_AUDIO, android.permission.INTERNET, android.permission.ACCESS_NETWORK_STATE
 android.api = 34
 android.minapi = 21
 android.archs = arm64-v8a

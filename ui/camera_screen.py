@@ -16,8 +16,8 @@ from kivymd.toast import toast
 
 import library
 import notes
-import ocr
 import storage
+import suggestions
 from library import CAPTURE_NAME_FORMAT, find_photos
 from permissions import camera_permission_granted, photo_saving_allowed
 from ui import dialogs, theme, widgets
@@ -278,11 +278,18 @@ Builder.load_string("""
 # vincular a câmera, e a conexão é refeita a cada volta para esta tela.
 MINIMUM_ZOOM = 0
 
-SUGGESTION_CAPTION = "Sugestão lida da imagem. Revise ou apague antes de salvar."
+SUGGESTION_CAPTION = "Sugestão gerada a partir da imagem. Revise ou apague antes de salvar."
+WAITING_CAPTION = "Gerando sugestão a partir da imagem..."
 
 
 def timestamp_name() -> str:
     return datetime.now().strftime(CAPTURE_NAME_FORMAT)
+
+
+def suggestion_caption(waiting: bool, suggestion: str) -> str:
+    if waiting:
+        return WAITING_CAPTION
+    return SUGGESTION_CAPTION if suggestion else ""
 
 
 class LastPhotoButton(ButtonBehavior, Thumbnail):
@@ -323,6 +330,7 @@ class CameraScreen(SnapScreen):
         super().__init__(**kwargs)
         self._thumbnails = thumbnails
         self._suggestion = ""
+        self._waiting = False
 
     def on_camera_permission(self, granted: bool) -> None:
         if granted:
@@ -376,7 +384,8 @@ class CameraScreen(SnapScreen):
         panel.photo_path = file_path
         self._thumbnails.display(file_path, panel.ids.thumbnail)
         self._suggestion = ""
-        ocr.recognize_text(Path(file_path), lambda text: self._suggest(file_path, text))
+        self._waiting = True
+        suggestions.suggest_note(Path(file_path), lambda text: self._suggest(file_path, text))
         resting = self.ids.zoom_row.top + dp(theme.SPACING)
         panel.y = resting - dp(theme.ISLAND_SLIDE)
         panel.shown = True
@@ -397,14 +406,16 @@ class CameraScreen(SnapScreen):
         self.refresh_last_photo()
 
     def open_note_panel(self) -> None:
-        self.ids.note_panel.open(self._suggestion, SUGGESTION_CAPTION if self._suggestion else "")
+        self.ids.note_panel.open(self._suggestion, suggestion_caption(self._waiting, self._suggestion))
 
-    # O reconhecimento responde em outra thread e pode terminar depois de o
-    # painel já estar aberto ou de outra foto ter sido capturada.
+    # A sugestão responde em outra thread e pode chegar depois de o painel
+    # já estar aberto ou de outra foto ter sido capturada. Vir vazia também
+    # é resposta: o aviso de espera sai do painel de qualquer forma.
     @mainthread
     def _suggest(self, file_path: str, text: str) -> None:
-        if self.ids.capture_panel.photo_path != file_path or not text:
+        if self.ids.capture_panel.photo_path != file_path:
             return
+        self._waiting = False
         self._suggestion = text
         if self.ids.note_panel.shown:
             self.ids.note_panel.suggest(text, SUGGESTION_CAPTION)

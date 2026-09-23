@@ -22,6 +22,7 @@ from kivymd.toast import toast
 
 import demo
 import library
+import settings
 import storage
 from core.index import IndexedPhoto
 from permissions import PermissionStatus, photo_saving_allowed, request_app_permissions
@@ -29,6 +30,7 @@ from ui.camera_screen import CameraScreen
 from ui.detail_screen import DetailScreen
 from ui.gallery_screen import GalleryScreen
 from ui.keywords_screen import KeywordsScreen
+from ui.settings_screen import SettingsScreen
 from ui.thumbnail_loader import ThumbnailLoader
 
 BACK_KEY = 27
@@ -49,6 +51,7 @@ class SnapNoteApp(MDApp):
         # modo o Kivy desloca a janela até o widget focado ficar acima dele.
         Window.softinput_mode = "below_target"
         Window.bind(on_keyboard=self.on_window_key)
+        settings.use(storage.settings_path())
 
         previews = ThumbnailLoader(PREVIEW_SIZE, max_cached=PREVIEW_CACHE)
         thumbnails = ThumbnailLoader(GRID_THUMBNAIL_SIZE)
@@ -56,6 +59,7 @@ class SnapNoteApp(MDApp):
         self.gallery = GalleryScreen(thumbnails, name="gallery")
         self.detail = DetailScreen(previews, thumbnails, name="detail")
         self.keywords = KeywordsScreen(name="keywords")
+        self.settings = SettingsScreen(name="settings")
 
         self.camera.bind(
             on_photo_captured=lambda _camera, file_path: self.register_capture(file_path),
@@ -64,16 +68,18 @@ class SnapNoteApp(MDApp):
         self.gallery.bind(
             on_photo_selected=lambda _gallery, photos, position: self.show_detail(photos, position),
             on_keywords_requested=lambda _gallery: self.show_keywords(),
+            on_settings_requested=lambda _gallery: self.show_settings(),
             on_back=lambda _gallery: self.show_camera(),
         )
         self.keywords.bind(on_back=lambda _keywords: self.show_gallery())
+        self.settings.bind(on_back=lambda _settings: self.show_gallery())
         self.detail.bind(
             on_deleted=lambda _detail: self.show_gallery(),
             on_back=lambda _detail: self.show_gallery(),
         )
 
         manager = ScreenManager()
-        for screen in (self.camera, self.gallery, self.detail, self.keywords):
+        for screen in (self.camera, self.gallery, self.detail, self.keywords, self.settings):
             manager.add_widget(screen)
         return manager
 
@@ -94,6 +100,10 @@ class SnapNoteApp(MDApp):
     def show_keywords(self) -> None:
         self.keywords.refresh()
         self.root.current = "keywords"
+
+    def show_settings(self) -> None:
+        self.settings.refresh()
+        self.root.current = "settings"
 
     def show_detail(self, photos: list[IndexedPhoto], position: int) -> None:
         self.detail.show(photos, position)
@@ -116,6 +126,7 @@ class SnapNoteApp(MDApp):
             "gallery": self.gallery.navigate_back,
             "detail": self.show_gallery,
             "keywords": self.show_gallery,
+            "settings": self.show_gallery,
         }
         back_actions[self.root.current]()
         return True
