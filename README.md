@@ -7,6 +7,7 @@
 [![Google Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![ML Kit](https://img.shields.io/badge/OCR-Google%20ML%20Kit-FFCA28?logo=firebase&logoColor=black)](https://developers.google.com/ml-kit)
 [![YouTube](https://img.shields.io/badge/YouTube-Vídeo%20Pitch%20%26%20Demo-FF0000?logo=youtube&logoColor=white)](https://youtu.be/0CPvpbiuu4Q?is=o4TaOXjgMaykryGK)
+[![Download APK](https://img.shields.io/badge/Download-APK%20(Pronto%20para%20Testes)-34A853?logo=android&logoColor=white)](snapnote-0.1.apk)
 
 SnapNote é um aplicativo móvel Android (com suporte a ambiente desktop para desenvolvimento) desenvolvido como desafio acadêmico da **FIAP** em parceria com uma fabricante de dispositivos móveis.
 
@@ -31,6 +32,46 @@ O diferencial central do SnapNote é **armazenar anotações de texto e metadado
 Para a banca avaliadora do Challenge, foi produzido um vídeo completo de apresentação que une a narrativa (storytelling) do problema com a demonstração prática das funcionalidades do aplicativo em execução:
 
 📺 **Assista no YouTube:** [SnapNote - Demonstração e Storytelling (Challenge FIAP)](https://youtu.be/0CPvpbiuu4Q?is=o4TaOXjgMaykryGK)
+
+---
+
+## 📱 Instalação Rápida do APK no Celular (Avaliação pela Banca / Professor)
+
+Para facilitar a avaliação prática pelo professor e pela banca examinadora da FIAP, disponibilizamos o **APK atualizado e pronto para uso** diretamente no repositório:
+
+📦 **Arquivo para Download:** [`snapnote-0.1.apk`](snapnote-0.1.apk) (localizado na raiz deste projeto).
+
+> [!IMPORTANT]
+> **Chave do Gemini já embarcada no APK:**  
+> Este pacote já foi compilado com a credencial da API do Google Gemini ativa internamente.  
+> **Não é necessário criar conta na Google Cloud nem configurar arquivos `.env` ou `secrets.json` para testar no celular.**  
+> Basta fazer o download do APK, instalar no smartphone Android e realizar todos os testes de avaliação imediatamente.
+
+### Passo a Passo de Instalação no Celular
+
+1. **Baixar o APK no Celular:**
+   - Faça o download do arquivo [`snapnote-0.1.apk`](snapnote-0.1.apk) diretamente pelo navegador do smartphone através do GitHub ou transfira do computador para o aparelho (via cabo USB, Google Drive, WhatsApp, etc.).
+2. **Autorizar Fontes Desconhecidas:**
+   - Ao tocar no arquivo baixado, o Android solicitará permissão para instalar aplicativos de fora da loja ("Permitir desta fonte" / "Instalar apps desconhecidos"). Basta habilitar para prosseguir com a instalação.
+3. **Abrir e Conceder Permissões:**
+   - Na primeira execução, o SnapNote solicitará as permissões necessárias em tempo de execução:
+     - **Câmera:** para capturar fotos.
+     - **Armazenamento / Fotos:** para salvar e ler fotos no álbum público `DCIM/SnapNote`.
+     - **Microfone:** solicitado ao tocar no microfone pela primeira vez (para ditado ou busca por voz).
+4. **Massa de Demonstração Pré-carregada:**
+   - O aplicativo já vem configurado com **14 fotos de demonstração** contextualizadas (Cálculo, Álgebra Linear, Física, Programação, notas fiscais e listas), com anotações e datas distribuídas no tempo. Com isso, o professor pode avaliar a galeria, busca, álbuns e filtros imediatamente sem precisar fotografar 14 itens diferentes.
+
+### 🧪 Roteiro Sugerido de Testes para Avaliação
+
+- **1. Teste da IA Gemini (Multimodal):** Com internet ativa, tire uma foto de qualquer objeto, documento, quadro ou tela. A ilha inferior pós-captura exibirá a miniatura e o ícone de cérebro dourado. Toque no cérebro para abrir o painel com a frase descritiva gerada pelo Gemini em português.
+- **2. Teste do OCR Offline (ML Kit Local):** Desative o Wi-Fi e os dados móveis (modo avião) e fotografe um texto impresso ou manuscrito. O aplicativo recorrerá ao OCR on-device do Google ML Kit sem travar nem exibir erros de rede.
+- **3. Teste do Ditado e Busca por Voz:** No painel de anotação, toque no microfone e fale em português para preencher o texto. Na tela de galeria, use o microfone ao lado do campo de busca para pesquisar falando.
+- **4. Teste da Persistência EXIF Portável:** Salve uma anotação. Abra a galeria nativa do aparelho ou conecte o celular ao PC: a foto está salva em `DCIM/SnapNote` e a anotação está gravada permanentemente no cabeçalho EXIF (`UserComment` em UTF-16BE), viajando junto com a imagem caso ela seja compartilhada.
+- **5. Teste da Galeria, Busca e Taxonomia Acadêmica:**
+  - Na aba **Fotos**, confira a ordenação cronológica dividida por seções de data (*Hoje*, *Ontem*, etc.).
+  - Digite termos no campo de busca (ex: `mercado`, `limites`, `recibo`) para testar a busca em tempo real com normalização de acentos e maiúsculas/minúsculas.
+  - Na aba **Pastas**, navegue pelos álbuns automáticos por palavras-chave e pela árvore de taxonomia acadêmica (*Área* -> *Tópico* -> *Subtópico*).
+- **6. Teste do Visualizador em Tela Cheia e Carrossel:** Toque em qualquer foto na grade para visualizá-la em tela cheia. Deslize horizontalmente (swipe) com animação suave, navegue pela tira inferior de miniaturas e toque no ícone `(i)` para exibir os metadados e a data da captura.
 
 ---
 
@@ -62,6 +103,7 @@ O projeto adota uma arquitetura em camadas com separação clara de responsabili
 
 ```
 SnapNote/
+├── snapnote-0.1.apk             # APK Android pré-compilado pronto para testes e avaliação
 ├── core/                        # Camada de Domínio e Dados Pura (sem dependências de GUI)
 │   ├── exif_store.py            # Leitura/escrita de EXIF (UserComment UTF-16BE e DateTimeOriginal)
 │   ├── index.py                 # Banco de dados SQLite local, esquemas, índices e migrações
@@ -189,6 +231,9 @@ Na primeira execução, o app carrega automaticamente 14 fotos de demonstração
 ---
 
 ## 🔑 Configuração da Chave do Google Gemini
+
+> [!TIP]
+> **Aviso para avaliação:** Se você baixou o APK pré-compilado ([`snapnote-0.1.apk`](snapnote-0.1.apk)), a chave já está configurada internamente e **você não precisa fazer este passo**. As orientações abaixo são necessárias exclusivamente para quem for rodar o código-fonte no Desktop ou recompilar um novo APK a partir do código.
 
 Ao fotografar, o SnapNote envia a imagem otimizada para o Google Gemini gerar uma sugestão de anotação. A chave de API **nunca** deve ser incluída no controle de versão.
 
